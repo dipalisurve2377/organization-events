@@ -1,0 +1,27 @@
+{
+  "name": "temporal",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev:worker": "node --loader ts-node/esm worker.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@temporalio/client": "^1.12.1",
+    "@temporalio/worker": "^1.12.1",
+    "@temporalio/workflow": "^1.12.1",
+    "axios": "^1.10.0",
+    "dotenv": "^17.1.0",
+    "mongoose": "^8.16.2"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.10",
+    "@types/nodemailer": "^6.4.17",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.3"
+  }
+}
