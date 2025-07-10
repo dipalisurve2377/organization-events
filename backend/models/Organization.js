@@ -17,7 +17,7 @@ const organizationSchema=new mongoose.Schema({
     },
     status:{
         type:String,
-        enum:['provisining','updating','deleting','success','failed'],
+        enum: ['provisioning', 'updating', 'deleting', 'success', 'failed', 'updated', 'deleted'],
         default:'provisining'
     }
 },
