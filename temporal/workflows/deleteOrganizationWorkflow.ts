@@ -1,37 +1,43 @@
 import { proxyActivities } from "@temporalio/workflow";
 
-import type * as activities from "../activities/activities.ts"
+import type * as activities from "../activities/activities.ts";
 
-
-export interface DeleteOrganizationInput{
-    orgId:string;
-    createdByEmail:string;
-    name?:string;
+export interface DeleteOrganizationInput {
+  orgId: string;
+  createdByEmail: string;
+  name?: string;
 }
 
-
-const {updateOrganizationStatus,sendNotificationEmail,getOrganizationNameById,deleteOrganizationInAuth0}= proxyActivities<typeof activities>({
-    startToCloseTimeout:'10 seconds'
+const {
+  updateOrganizationStatus,
+  sendNotificationEmail,
+  getOrganizationNameById,
+  deleteOrganizationInAuth0,
+} = proxyActivities<typeof activities>({
+  startToCloseTimeout: "10 seconds",
 });
 
-export async function deleteOrganizationWorkflow(input:DeleteOrganizationInput):Promise<void>{
+export async function deleteOrganizationWorkflow(
+  input: DeleteOrganizationInput
+): Promise<void> {
+  const { orgId, createdByEmail, name } = input;
 
-    const {orgId,createdByEmail,name}=input;
+  try {
+    const orgName = await getOrganizationNameById(orgId);
 
-    try {
+    await updateOrganizationStatus(orgId, "deleting");
 
-        const orgName = await getOrganizationNameById(orgId); 
-        
-        await updateOrganizationStatus(orgId,'deleting');
+    await deleteOrganizationInAuth0(orgId);
 
-        await deleteOrganizationInAuth0(orgId);
+    await updateOrganizationStatus(orgId, "deleted");
 
-        await updateOrganizationStatus(orgId,'deleted')
-
-        await sendNotificationEmail(createdByEmail,orgName || "Your Organizatioin","deleted");
-    } catch (error) {
-     
+    await sendNotificationEmail(
+      createdByEmail,
+      orgName || "Your Organizatioin",
+      "deleted"
+    );
+  } catch (error) {
     console.error("Delete Organization Workflow failed:", error);
-    await updateOrganizationStatus(orgId, "failed");   
-    }
+    await updateOrganizationStatus(orgId, "failed");
+  }
 }
