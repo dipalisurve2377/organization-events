@@ -90,7 +90,7 @@ curl -X PUT http://localhost:7000/api/organizations/update \
 "createdByEmail": "dipali@platformatory.com"
 }'
 
-❌ Delete Organization (Soft Delete)
+## ❌ Delete Organization (Soft Delete)
 
 curl -X DELETE http://localhost:7000/api/organizations/delete \
  -H "Content-Type: application/json" \
