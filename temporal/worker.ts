@@ -1,9 +1,7 @@
 import { Worker } from "@temporalio/worker";
-
 import * as activities from "./activities/activities";
-
-
-import { createOrganizationWorkflow } from "./workflows";
+// import { createOrganizationWorkflow } from "./workflows";
+import * as workflows from "./workflows";
 
 
 async function run() {

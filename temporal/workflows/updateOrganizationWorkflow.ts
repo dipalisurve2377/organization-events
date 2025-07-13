@@ -10,7 +10,7 @@ export interface UpdateOrganizationInput{
 }
 
 
-const {updateOrganizationRecord,updateOrganizationStatus,sendNotificationEmail}=proxyActivities<typeof activities>({
+const {updateOrganizationInAuth0,updateOrganizationStatus,sendNotificationEmail}=proxyActivities<typeof activities>({
     startToCloseTimeout:'10 seconds',
 })
 
@@ -18,9 +18,11 @@ const {updateOrganizationRecord,updateOrganizationStatus,sendNotificationEmail}=
 export async function updateOrganizationWorkflow(input:UpdateOrganizationInput):Promise<void>{
     const {orgId,name,identifier,createdByEmail}=input;
     try {
-        // update the data in db
-        await updateOrganizationRecord(orgId,name,identifier);
-        
+
+        await updateOrganizationStatus(orgId,'updating');
+        // update in auth0
+        await updateOrganizationInAuth0(orgId,name,identifier);
+
         // update status
         await updateOrganizationStatus(orgId,"updated");
        
@@ -29,6 +31,6 @@ export async function updateOrganizationWorkflow(input:UpdateOrganizationInput):
 
     } catch (error) {
         console.error("Update Organization Workflow failed",error);
-        await updateOrganizationStatus(orgId,"Failed");
+        await updateOrganizationStatus(orgId,"failed");
     }
 }

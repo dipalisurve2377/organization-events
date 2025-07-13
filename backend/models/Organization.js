@@ -15,11 +15,15 @@ const organizationSchema=new mongoose.Schema({
         type:String,
         required:true,
     },
+    auth0Id:{
+        type:String
+    },
     status:{
         type:String,
         enum: ['provisioning', 'updating', 'deleting', 'success', 'failed', 'updated', 'deleted'],
         default:'provisining'
-    }
+    },
+    
 },
 
 {
