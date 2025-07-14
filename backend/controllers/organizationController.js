@@ -12,6 +12,13 @@ export const createOrganizationController = async (req, res) => {
   }
 
   try {
+    const existing = await Organization.findOne({ identifier });
+
+    if (existing) {
+      return res
+        .status(400)
+        .json({ error: "Organization with this identifier already exists." });
+    }
     const org = await Organization.create({
       name,
       identifier,

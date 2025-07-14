@@ -2,7 +2,9 @@ import mongoose, { Error } from "mongoose";
 import nodemailer from "nodemailer";
 import { getAuth0Token } from "../auth0Service";
 import dotenv from "dotenv";
-import axios from "axios";
+import axios, { AxiosError } from "axios";
+import { request } from "http";
+import { ApplicationFailure } from "@temporalio/client";
 
 dotenv.config();
 
@@ -92,12 +94,48 @@ export const createOrganizationInAuth0 = async (
 
     return auth0Id;
   } catch (error: any) {
-    console.error(
-      "Failed to create organization in Auth0:",
-      error.response?.data || error.message
-    );
+    let errorMessage = "Failed to create organization in Auth0.";
 
-    throw new Error("Auth0 organization creation failed");
+    if (error.response) {
+      const status = error.response.status;
+      errorMessage += ` Auth0 responded with status ${status}: ${JSON.stringify(
+        error.response.data
+      )}`;
+
+      // No retry on 4xx errors
+      if (status >= 400 && status < 500) {
+        throw ApplicationFailure.create({
+          message: errorMessage,
+          type: "Auth0ClientError",
+          nonRetryable: true,
+        });
+      }
+
+      // Retryable for 5xx
+      throw ApplicationFailure.create({
+        message: errorMessage,
+        type: "Auth0ServerError",
+        nonRetryable: false,
+      });
+    } else if (error.request) {
+      // Network issue - retryable
+      errorMessage += ` No response from Auth0. Possible network issue.`;
+
+      throw ApplicationFailure.create({
+        message: errorMessage,
+        type: "NetworkError",
+        nonRetryable: false,
+      });
+    } else {
+      // retryable
+      errorMessage += ` Request setup failed: ${error.message}`;
+
+      throw ApplicationFailure.create({
+        message: errorMessage,
+        type: "RequestSetupError",
+        nonRetryable: false,
+      });
+    }
   }
 };
 
@@ -108,42 +146,54 @@ export const sendNotificationEmail = async (
   name: string,
   action: "created" | "updated" | "deleted" | "cancelled" | "failed" = "created"
 ): Promise<void> => {
-  const transporter = nodemailer.createTransport({
-    service: "gmail",
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
-    },
-  });
+  try {
+    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+      throw new Error(
+        "EMAIL_USER or EMAIL_PASS environment variable is missing."
+      );
+    }
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
 
-  // creating dynamic body for mail
-  let messageBody = "";
-  if (action == "created") {
-    messageBody = `<p>Hello,</p>
-      <p>Your organization <strong>${name}</strong> has been <span style="color:green;"><strong>successfully created</strong></span>.</p>`;
-  } else if (action == "updated") {
-    messageBody = `<p>Hello,</p>
-      <p>Your organization has been <span style="color:orange;"><strong>successfully updated to ${name}</strong></span>.</p>`;
-  } else if (action == "deleted") {
-    messageBody = `<p>Hello,</p>
-      <p>Your organization <strong>${name}</strong> has been <span style="color:red;"><strong>successfully deleted</strong></span>.</p>`;
+    // creating dynamic body for mail
+    let messageBody = "";
+    if (action == "created") {
+      messageBody = `<p>Hello,</p>
+        <p>Your organization <strong>${name}</strong> has been <span style="color:green;"><strong>successfully created</strong></span>.</p>`;
+    } else if (action == "updated") {
+      messageBody = `<p>Hello,</p>
+        <p>Your organization has been <span style="color:orange;"><strong>successfully updated to ${name}</strong></span>.</p>`;
+    } else if (action == "deleted") {
+      messageBody = `<p>Hello,</p>
+        <p>Your organization <strong>${name}</strong> has been <span style="color:red;"><strong>successfully deleted</strong></span>.</p>`;
+    }
+
+    const htmlTemplate = `
+      <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+        ${messageBody}
+        <p style="margin-top: 20px;">Thank you,<br/>Organization Events Team</p>
+      </div>
+    `;
+
+    await transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to,
+      subject: `Organization ${action}`,
+      html: htmlTemplate,
+    });
+
+    console.log(`Notification email sent to ${to} for action ${action}`);
+  } catch (error: any) {
+    const errorMsg = `Failed to send notification email to ${to} for action "${action}": ${error.message}`;
+    console.error(errorMsg);
+
+    throw new Error(errorMsg);
   }
-
-  const htmlTemplate = `
-    <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-      ${messageBody}
-      <p style="margin-top: 20px;">Thank you,<br/>Organization Events Team</p>
-    </div>
-  `;
-
-  await transporter.sendMail({
-    from: process.env.EMAIL_USER,
-    to,
-    subject: `Organization ${action}`,
-    html: htmlTemplate,
-  });
-
-  console.log(`Notification email sent to ${to} for action ${action}`);
 };
 
 // update the organization status
@@ -185,7 +235,11 @@ export const updateOrganizationInAuth0 = async (
     const org = await Organization.findById(orgId);
 
     if (!org || !org.auth0Id) {
-      throw new Error("Organization or Auth0 ID not found");
+      throw ApplicationFailure.create({
+        message: `Organization or Auth0 ID not found for orgId: ${orgId}`,
+        type: "MissingAuth0ID",
+        nonRetryable: true,
+      });
     }
     const token = await getAuth0Token();
 
@@ -219,11 +273,46 @@ export const updateOrganizationInAuth0 = async (
 
     console.log("Organization updated in MongoDB", dbUpdate);
   } catch (error: any) {
-    console.error(
-      "Failed to update Organization in Auth0",
-      error.response?.data || error.message
-    );
-    throw new Error("Auth0 organization update failed");
+    let errorMessage = `Failed to update organization (orgId: ${orgId})`;
+
+    if (axios.isAxiosError(error) && error.response) {
+      const status = error.response?.status ?? 0;
+      const data = JSON.stringify(error.response.data);
+      errorMessage += ` — Auth0 responded with status ${status}: ${data}`;
+
+      if (status >= 400 && status < 500) {
+        throw ApplicationFailure.create({
+          message: errorMessage,
+          type: "Auth0ClientError",
+          nonRetryable: true,
+        });
+      }
+
+      throw ApplicationFailure.create({
+        message: errorMessage,
+        type: "Auth0ServerError",
+        nonRetryable: false,
+      });
+    } else if (axios.isAxiosError(error) && error.request) {
+      errorMessage +=
+        " — No response received from Auth0. Possible network issue or invalid domain.";
+
+      throw ApplicationFailure.create({
+        message: errorMessage,
+        type: "NetworkError",
+        nonRetryable: false,
+      });
+    } else {
+      errorMessage += ` — Error setting up request: ${
+        error?.message || "Unknown error"
+      }`;
+
+      throw ApplicationFailure.create({
+        message: errorMessage,
+        type: "GenericUpdateFailure",
+        nonRetryable: true,
+      });
+    }
   }
 };
 
@@ -240,19 +329,70 @@ export const getOrganizationNameById = async (
 export const deleteOrganizationInAuth0 = async (
   orgId: string
 ): Promise<void> => {
-  await connectDB();
+  try {
+    await connectDB();
 
-  const token = await getAuth0Token();
+    const token = await getAuth0Token();
 
-  const org = await Organization.findById(orgId);
-  console.log("Auth0Id for deleting organization", org.auth0Id);
+    const org = await Organization.findById(orgId);
 
-  await axios.delete(
-    `https://${process.env.AUTH0_DOMAIN}/api/v2/organizations/${org.auth0Id}`,
-    {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
+    if (!org || !org.auth0Id) {
+      throw ApplicationFailure.create({
+        message: `Organization or Auth0 ID not found for orgId: ${orgId}`,
+        type: "MissingAuth0ID",
+        nonRetryable: true,
+      });
     }
-  );
+
+    console.log("Auth0Id for deleting organization", org.auth0Id);
+
+    await axios.delete(
+      `https://${process.env.AUTH0_DOMAIN}/api/v2/organizations/${org.auth0Id}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+  } catch (error: any) {
+    let errorMessage = `Failed to delete organization (orgId: ${orgId})`;
+
+    if (axios.isAxiosError(error) && error.response) {
+      const status = error.response.status;
+      const data = JSON.stringify(error.response.data);
+      errorMessage += ` — Auth0 responded with status ${status}: ${data}`;
+
+      if (status >= 400 && status < 500) {
+        throw ApplicationFailure.create({
+          message: errorMessage,
+          type: "Auth0ClientError",
+          nonRetryable: true,
+        });
+      }
+
+      throw ApplicationFailure.create({
+        message: errorMessage,
+        type: "Auth0ServerError",
+        nonRetryable: false,
+      });
+    } else if (axios.isAxiosError(error) && error.request) {
+      errorMessage +=
+        " — No response received from Auth0. Possible network issue.";
+      throw ApplicationFailure.create({
+        message: errorMessage,
+        type: "NetworkError",
+        nonRetryable: false,
+      });
+    } else {
+      errorMessage += ` — Error setting up request: ${
+        error.message || "Unknown error"
+      }`;
+
+      throw ApplicationFailure.create({
+        message: errorMessage,
+        type: "GenericDeleteFailure",
+        nonRetryable: true,
+      });
+    }
+  }
 };

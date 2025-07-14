@@ -1,6 +1,7 @@
 import { proxyActivities } from "@temporalio/workflow";
 
 import type * as activities from "../activities/activities.ts";
+import { ApplicationFailure } from "@temporalio/workflow";
 
 export interface UpdateOrganizationInput {
   orgId: string;
@@ -15,6 +16,12 @@ const {
   sendNotificationEmail,
 } = proxyActivities<typeof activities>({
   startToCloseTimeout: "10 seconds",
+  retry: {
+    maximumAttempts: 5,
+    initialInterval: "2s",
+    backoffCoefficient: 2,
+    maximumInterval: "30s",
+  },
 });
 
 export async function updateOrganizationWorkflow(
@@ -37,6 +44,13 @@ export async function updateOrganizationWorkflow(
     );
   } catch (error) {
     console.error("Update Organization Workflow failed", error);
-    await updateOrganizationStatus(orgId, "failed");
+
+    if (error instanceof ApplicationFailure && error.nonRetryable) {
+      await updateOrganizationStatus(orgId, "failed");
+    } else {
+      await updateOrganizationStatus(orgId, "failed");
+    }
+
+    throw error;
   }
 }

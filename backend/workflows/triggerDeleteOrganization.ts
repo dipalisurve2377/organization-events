@@ -14,6 +14,17 @@ export const triggerDeleteOrganization = async (
     taskQueue: "organization-task-queue",
     workflowId: `delete-org-${input.orgId}`,
     args: [input],
+    retry: {
+      maximumAttempts: 3,
+      initialInterval: "3s",
+      backoffCoefficient: 2,
+      maximumInterval: "1m",
+      nonRetryableErrorTypes: [
+        "Auth0ClientError",
+        "MissingAuth0ID",
+        "GenericDeleteFailure",
+      ],
+    },
   });
 
   console.log(`Started delete workflow : ${handle.workflowId}`);
