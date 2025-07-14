@@ -10,10 +10,7 @@ let connected = false;
 
 const connectDB = async () => {
   if (!connected) {
-    await mongoose.connect(
-      process.env.MONGO_URI ||
-        "mongodb+srv://dipali:organization2000@cluster0.l9sxobd.mongodb.net/"
-    );
+    await mongoose.connect(process.env.MONGO_URI as string);
     connected = true;
   }
 };
@@ -34,6 +31,7 @@ const organizationSchema = new mongoose.Schema(
         "failed",
         "updated",
         "deleted",
+        "cancelled",
       ],
       default: "provisioning",
     },
@@ -64,7 +62,7 @@ export const createOrganizationInAuth0 = async (
     });
 
     const orgRes = await axios.post(
-      `https://dev-kfmfhnq5hivv164x.us.auth0.com/api/v2/organizations`,
+      `https://${process.env.AUTH0_DOMAIN}/api/v2/organizations`,
       {
         display_name: name,
         name: identifier,
@@ -108,7 +106,7 @@ export const createOrganizationInAuth0 = async (
 export const sendNotificationEmail = async (
   to: string,
   name: string,
-  action: "created" | "updated" | "deleted" = "created"
+  action: "created" | "updated" | "deleted" | "cancelled" | "failed" = "created"
 ): Promise<void> => {
   const transporter = nodemailer.createTransport({
     service: "gmail",
@@ -159,7 +157,8 @@ export const updateOrganizationStatus = async (
     | "updating"
     | "deleting"
     | "updated"
-    | "deleted",
+    | "deleted"
+    | "canceled",
   auth0Id?: string,
   name?: string
 ): Promise<void> => {
@@ -200,7 +199,7 @@ export const updateOrganizationInAuth0 = async (
     }
 
     const response = await axios.patch(
-      `https://dev-kfmfhnq5hivv164x.us.auth0.com/api/v2/organizations/${org.auth0Id}`,
+      `https://${process.env.AUTH0_DOMAIN}/api/v2/organizations/${org.auth0Id}`,
       updatePayload,
       {
         headers: {
@@ -249,7 +248,7 @@ export const deleteOrganizationInAuth0 = async (
   console.log("Auth0Id for deleting organization", org.auth0Id);
 
   await axios.delete(
-    `https://dev-kfmfhnq5hivv164x.us.auth0.com/api/v2/organizations/${org.auth0Id}`,
+    `https://${process.env.AUTH0_DOMAIN}/api/v2/organizations/${org.auth0Id}`,
     {
       headers: {
         Authorization: `Bearer ${token}`,
