@@ -1,36 +1,43 @@
 import mongoose from "mongoose";
 
-const organizationSchema=new mongoose.Schema({
+const organizationSchema = new mongoose.Schema(
+  {
+    name: {
+      type: String,
+      required: true,
+    },
+    identifier: {
+      type: String,
+      required: true,
+      unique: true,
+    },
+    createdByEmail: {
+      type: String,
+      required: true,
+    },
+    auth0Id: {
+      type: String,
+    },
+    status: {
+      type: String,
+      enum: [
+        "provisioning",
+        "updating",
+        "deleting",
+        "success",
+        "failed",
+        "updated",
+        "deleted",
+      ],
+      default: "provisining",
+    },
+  },
 
-    name:{
-        type:String,
-        required:true,        
-    },
-    identifier:{
-        type:String,
-        required:true,
-        unique:true,
-    },
-    createdByEmail:{
-        type:String,
-        required:true,
-    },
-    auth0Id:{
-        type:String
-    },
-    status:{
-        type:String,
-        enum: ['provisioning', 'updating', 'deleting', 'success', 'failed', 'updated', 'deleted'],
-        default:'provisining'
-    },
-    
-},
-
-{
-    timestamps:true
-}
+  {
+    timestamps: true,
+  }
 );
 
-const Organization=mongoose.model('Organization',organizationSchema);
+const Organization = mongoose.model("Organization", organizationSchema);
 
 export default Organization;

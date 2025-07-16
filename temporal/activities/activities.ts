@@ -49,6 +49,7 @@ const Organization =
 
 // create organization in Auth0
 
+//  This is the Activity Function Definition
 export const createOrganizationInAuth0 = async (
   name: string,
   identifier: string,
@@ -104,6 +105,7 @@ export const createOrganizationInAuth0 = async (
 
       // No retry on 4xx errors
       if (status >= 400 && status < 500) {
+        // if request is bad or invalid
         throw ApplicationFailure.create({
           message: errorMessage,
           type: "Auth0ClientError",
@@ -112,12 +114,15 @@ export const createOrganizationInAuth0 = async (
       }
 
       // Retryable for 5xx
+      // server issue timeout
       throw ApplicationFailure.create({
         message: errorMessage,
         type: "Auth0ServerError",
         nonRetryable: false,
       });
-    } else if (error.request) {
+    }
+    //The request was sent, but no response came back — maybe because of a network problem, or server timeout.
+    else if (error.request) {
       // Network issue - retryable
       errorMessage += ` No response from Auth0. Possible network issue.`;
 
