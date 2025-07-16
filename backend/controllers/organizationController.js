@@ -1,6 +1,7 @@
 import { triggerCreateOrganization } from "../workflows/triggerCreateOrganization.ts";
 import { triggerUpdateOrganization } from "../workflows/triggerUpdateOrganization.ts";
 import { triggerDeleteOrganization } from "../workflows/triggerDeleteOrganization.ts";
+import { triggerListOrganizations } from "../workflows/triggerListOrganizations.ts";
 import { sendUpdateSignalToOrgWorkflow } from "../workflows/sendUpdateSignalToOrgWorkflow.ts";
 import { sendTerminateSignalToOrgWorkflow } from "../workflows/sendTerminateSignalToOrgWorkflow.ts";
 import { sendCancelSignalToOrgWorkflow } from "../workflows/sendCancelSignalToOrgWorkflow.ts";
@@ -48,15 +49,23 @@ export const createOrganizationController = async (req, res) => {
 };
 
 export const updateOrganizationController = async (req, res) => {
-  const { orgId, name, identifier, createdByEmail } = req.body;
+  const orgId = req.params.id;
 
-  if (!orgId || !createdByEmail) {
-    return res
-      .status(400)
-      .json({ error: "Organization ID  any createdByEmail is required" });
+  const { name, identifier } = req.body;
+
+  if (!orgId) {
+    return res.status(400).json({ error: "Organization ID is required" });
   }
 
   try {
+    const organization = await Organization.findById(orgId);
+
+    if (!organization) {
+      return res.status(404).json({ error: "Organization not found" });
+    }
+
+    const { createdByEmail } = organization;
+
     console.log("Calling triggerUpdateOrganization with:", {
       orgId,
       name,
@@ -81,15 +90,20 @@ export const updateOrganizationController = async (req, res) => {
 };
 
 export const deleteOrganizationController = async (req, res) => {
-  const { orgId, createdByEmail, name } = req.body;
+  const orgId = req.params.id;
 
-  if (!orgId || !createdByEmail) {
-    return res
-      .status(400)
-      .json({ error: "orgId, name, and createdByEmail are required" });
+  if (!orgId) {
+    return res.status(400).json({ error: "orgId is required" });
   }
 
   try {
+    const organization = await Organization.findById(orgId);
+
+    if (!organization) {
+      return res.status(404).json({ error: "Organization not found" });
+    }
+    const { name, createdByEmail } = organization;
+
     const workflowId = await triggerDeleteOrganization({
       orgId,
       name,
@@ -104,6 +118,26 @@ export const deleteOrganizationController = async (req, res) => {
     res
       .status(500)
       .json({ error: "Failed to start delete organization workflow" });
+  }
+};
+
+// controller for list of organizations
+
+export const listOrganizationController = async (req, res) => {
+  try {
+    const organizations = await triggerListOrganizations();
+
+    const cleanedOrganizations = organizations.map((org) => ({
+      name: org.display_name,
+      identifier: org.name,
+      orgId: org.id,
+      createdAt: org.created_at,
+    }));
+
+    res.status(200).json({ organizations: cleanedOrganizations });
+  } catch (error) {
+    console.error("Error listing organizations:", error);
+    res.status(500).json({ error: "Failed to fetch organizations from Auth0" });
   }
 };
 
