@@ -13,6 +13,7 @@ const {
   sendNotificationEmail,
   getOrganizationNameById,
   deleteOrganizationInAuth0,
+  deleteOrganizationFromDB,
 } = proxyActivities<typeof activities>({
   startToCloseTimeout: "10 seconds",
   retry: {
@@ -35,7 +36,7 @@ export async function deleteOrganizationWorkflow(
 
     await deleteOrganizationInAuth0(orgId);
 
-    await updateOrganizationStatus(orgId, "deleted");
+    await deleteOrganizationFromDB(orgId);
 
     await sendNotificationEmail(
       createdByEmail,

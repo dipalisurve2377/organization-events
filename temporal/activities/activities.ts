@@ -470,6 +470,33 @@ export const deleteOrganizationInAuth0 = async (
   }
 };
 
+export const deleteOrganizationFromDB = async (
+  orgId: string
+): Promise<void> => {
+  try {
+    await connectDB();
+
+    const deletedOrg = await Organization.findByIdAndDelete(orgId);
+    if (!deletedOrg) {
+      throw ApplicationFailure.create({
+        message: `Organization not found with orgId: ${orgId}`,
+        type: "MongoDeleteError",
+        nonRetryable: true,
+      });
+    }
+
+    console.log(` Deleted organization from MongoDB: ${orgId}`);
+  } catch (error: any) {
+    console.error("Error deleting organization from MongoDB:", error);
+
+    throw ApplicationFailure.create({
+      message: `Failed to hard delete organization from MongoDB. ${error.message}`,
+      type: "MongoDeleteFailure",
+      nonRetryable: false,
+    });
+  }
+};
+
 export const listOrganizationFromAuth0 = async (): Promise<any[]> => {
   try {
     const token = await getAuth0Token();
