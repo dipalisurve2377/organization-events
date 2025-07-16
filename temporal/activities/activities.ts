@@ -10,10 +10,20 @@ dotenv.config();
 
 let connected = false;
 
-const connectDB = async () => {
-  if (!connected) {
+export const connectDB = async (): Promise<void> => {
+  if (connected) return;
+
+  try {
     await mongoose.connect(process.env.MONGO_URI as string);
     connected = true;
+    console.log("MongoDB connected.");
+  } catch (err: any) {
+    console.error("MongoDB connection failed:", err.message);
+    throw ApplicationFailure.create({
+      message: `MongoDB connection failed: ${err.message}`,
+      type: "MongoConnectionError",
+      nonRetryable: false,
+    });
   }
 };
 
@@ -54,7 +64,7 @@ export const createOrganizationInAuth0 = async (
   name: string,
   identifier: string,
   createdByEmail: string
-): Promise<void> => {
+): Promise<string> => {
   try {
     const token = await getAuth0Token();
 
@@ -81,17 +91,7 @@ export const createOrganizationInAuth0 = async (
 
     const auth0Id = orgRes.data.id;
 
-    await connectDB();
-
-    await Organization.findOneAndUpdate(
-      { identifier },
-      { auth0Id },
-      { new: true }
-    );
-
-    console.log(
-      `Auth0 ID saved to db for identifier ${identifier} : ${auth0Id}`
-    );
+    console.log("Organization created in Auth0:", auth0Id);
 
     return auth0Id;
   } catch (error: any) {
@@ -144,6 +144,38 @@ export const createOrganizationInAuth0 = async (
   }
 };
 
+export const saveAuth0IdToMongoDB = async (
+  identifier: string,
+  auth0Id: string
+): Promise<void> => {
+  await connectDB();
+
+  try {
+    const result = await Organization.findOneAndUpdate(
+      { identifier },
+      { auth0Id },
+      { new: true }
+    );
+
+    if (!result) {
+      throw ApplicationFailure.create({
+        message: `Organization not found with the identifier: ${identifier}`,
+        type: "MongoUpdateError",
+        nonRetryable: true,
+      });
+    }
+    console.log(`Saved Auth0 ID to MongoDB: ${auth0Id} for ${identifier}`);
+  } catch (error: any) {
+    console.log("MongoDB update failed");
+
+    throw ApplicationFailure.create({
+      message: `Failed to update Auth0 ID in MongoDB for identifier ${identifier}. ${error.message}`,
+      type: "MongoUpdateFailure",
+      nonRetryable: false,
+    });
+  }
+};
+
 // sending email to the user
 
 export const sendNotificationEmail = async (
@@ -163,6 +195,7 @@ export const sendNotificationEmail = async (
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS,
       },
+      connectionTimeout: 30000,
     });
 
     // creating dynamic body for mail
@@ -201,7 +234,7 @@ export const sendNotificationEmail = async (
   }
 };
 
-// update the organization status
+// update the organization status in DB
 
 export const updateOrganizationStatus = async (
   orgId: string,
@@ -217,16 +250,36 @@ export const updateOrganizationStatus = async (
   auth0Id?: string,
   name?: string
 ): Promise<void> => {
-  await connectDB();
+  try {
+    await connectDB();
 
-  const update: any = { status };
+    const update: any = { status };
 
-  if (auth0Id) update.auth0Id = auth0Id;
-  if (name) update.name = name;
+    if (auth0Id) update.auth0Id = auth0Id;
+    if (name) update.name = name;
 
-  await Organization.findByIdAndUpdate(orgId, update, { new: true });
+    const result = await Organization.findByIdAndUpdate(orgId, update, {
+      new: true,
+    });
 
-  console.log(`Organization status updated to "${status}" for ${orgId}`);
+    if (!result) {
+      throw ApplicationFailure.create({
+        message: `Organization not found for orgId ${orgId}`,
+        type: "MongoUpdateError",
+        nonRetryable: true,
+      });
+    }
+
+    console.log(`Organization status updated to "${status}" for ${orgId}`);
+  } catch (error: any) {
+    console.error("Failed to update organization status in MongoDB");
+
+    throw ApplicationFailure.create({
+      message: `Failed to update organization status in MongoDB for orgId ${orgId}. ${error.message}`,
+      type: "MongoUpdateFailure",
+      nonRetryable: false,
+    });
+  }
 };
 
 export const updateOrganizationInAuth0 = async (
@@ -321,16 +374,31 @@ export const updateOrganizationInAuth0 = async (
   }
 };
 
-// delete organization in auth0
-
 export const getOrganizationNameById = async (
   orgId: string
 ): Promise<string | null> => {
-  await connectDB();
-  const org = await Organization.findById(orgId);
-  return org?.name || null;
+  try {
+    await connectDB();
+    const org = await Organization.findById(orgId);
+
+    if (!org) {
+      throw ApplicationFailure.create({
+        message: `Organization not found for orgId: ${orgId}`,
+        type: "MongoNotFoundError",
+        nonRetryable: true,
+      });
+    }
+    return org.name;
+  } catch (error: any) {
+    throw ApplicationFailure.create({
+      message: `Failed to fetch organization name for orgId: ${orgId}. ${error.message}`,
+      type: "MongoReadError",
+      nonRetryable: false,
+    });
+  }
 };
 
+// delete organization in auth0
 export const deleteOrganizationInAuth0 = async (
   orgId: string
 ): Promise<void> => {

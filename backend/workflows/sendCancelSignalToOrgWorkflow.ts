@@ -15,6 +15,8 @@ export const sendCancelSignalToOrgWorkflow = async ({
 
   console.log("Sending cancel signal to workflowId: ", workflowId);
 
+  handle.signal(cancelWorkflowSignal);
+
   await handle.cancel();
 
   console.log("Workflow canceled:", workflowId);

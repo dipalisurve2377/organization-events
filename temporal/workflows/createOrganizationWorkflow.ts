@@ -16,8 +16,6 @@ export const terminateWorkflowSignal = defineSignal<[]>("terminateWorkflow");
 
 export const cancelWorkflowSignal = defineSignal("cancelWorkflow");
 
-let shouldTerminate = false;
-
 export interface CreateOrganizationInput {
   orgId: string;
   name: string;
@@ -28,6 +26,7 @@ export interface CreateOrganizationInput {
 // This is the Activity Definition
 const {
   createOrganizationInAuth0,
+  saveAuth0IdToMongoDB,
   sendNotificationEmail,
   updateOrganizationStatus,
 } = proxyActivities<typeof activities>({
@@ -43,67 +42,21 @@ const {
 export async function createOrganizationWorkflow(
   input: CreateOrganizationInput
 ): Promise<void> {
-  let currentInput = { ...input };
-
-  // handler for the update signal
-  setHandler(updateOrgPayloadSignal, (updatedFields) => {
-    console.log("Signal received with updated feilds", updatedFields);
-
-    currentInput = { ...currentInput, ...updatedFields };
-  });
-
-  // handler for terminate workflow
-  setHandler(terminateWorkflowSignal, () => {
-    console.log("Terminate signal received");
-    shouldTerminate = true;
-  });
-
-  // handler for the cancel workflow
-
-  let shouldCancel = false;
-
-  setHandler(cancelWorkflowSignal, () => {
-    console.log("Cancel signal received. Workflow will exit.");
-    shouldCancel = true;
-  });
-
   const { orgId, name, identifier, createdByEmail } = input;
 
   try {
-    console.log("Creating organization with input:", currentInput);
+    const auth0Id = await createOrganizationInAuth0(
+      name,
+      identifier,
+      createdByEmail
+    );
 
-    await createOrganizationInAuth0(name, identifier, createdByEmail);
-
-    await sendNotificationEmail(createdByEmail, name);
+    await saveAuth0IdToMongoDB(identifier, auth0Id);
 
     await sleep("20 seconds");
     await updateOrganizationStatus(orgId, "success");
 
-    //--------------------------------------------Update Signal--------------------------------
-
-    await sleep("60 seconds"); // enable for update signal testing
-
-    //--------------------------------------------Termination Signal--------------------------------
-    // Check for termination in loop
-    for (let i = 0; i < 60; i++) {
-      if (shouldTerminate) {
-        console.log("Workflow terminated early via signal.");
-        return;
-      }
-      await sleep("1s");
-    }
-
-    //--------------------------------------------Cancel Signal--------------------------------
-
-    for (let i = 0; i < 60; i++) {
-      if (shouldCancel) {
-        console.log("Workflow canceled by signal.");
-        return;
-      }
-      await sleep("1s");
-    }
-
-    console.log("Final updated input after signals:", currentInput);
+    await sendNotificationEmail(createdByEmail, name);
   } catch (error: any) {
     console.error("Workflow failed:", error);
 
