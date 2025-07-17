@@ -1,11 +1,11 @@
 import { Worker } from "@temporalio/worker";
-import * as activities from "./activities/activities";
-// import { createOrganizationWorkflow } from "./workflows";
-import * as workflows from "./workflows";
+import * as activities from "../activities/organizationActivities";
+
+import * as workflows from "../workflows/organizationWorkflows";
 
 async function run() {
   const worker = await Worker.create({
-    workflowsPath: new URL("./workflows", import.meta.url).pathname,
+    workflowsPath: require.resolve("../workflows/organizationWorkflows"),
     activities,
     taskQueue: "organization-task-queue",
   });

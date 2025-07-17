@@ -1,27 +1,22 @@
-import { triggerCreateOrganization } from "../workflows/triggerCreateOrganization.ts";
-import { triggerUpdateOrganization } from "../workflows/triggerUpdateOrganization.ts";
-import { triggerDeleteOrganization } from "../workflows/triggerDeleteOrganization.ts";
-import { triggerListOrganizations } from "../workflows/triggerListOrganizations.ts";
-import { sendUpdateSignalToOrgWorkflow } from "../workflows/sendUpdateSignalToOrgWorkflow.ts";
-import { sendTerminateSignalToOrgWorkflow } from "../workflows/sendTerminateSignalToOrgWorkflow.ts";
-import { sendCancelSignalToOrgWorkflow } from "../workflows/sendCancelSignalToOrgWorkflow.ts";
+import { triggerCreateOrganization } from "../workflows/organizationWorkflowsTrigger/triggerCreateOrganization.ts";
+import { triggerUpdateOrganization } from "../workflows/organizationWorkflowsTrigger/triggerUpdateOrganization.ts";
+import { triggerDeleteOrganization } from "../workflows/organizationWorkflowsTrigger/triggerDeleteOrganization.ts";
+import { triggerListOrganizations } from "../workflows/organizationWorkflowsTrigger/triggerListOrganizations.ts";
+import { sendUpdateSignalToOrgWorkflow } from "../workflows/organizationWorkflowsTrigger/sendUpdateSignalToOrgWorkflow.ts";
+import { sendTerminateSignalToOrgWorkflow } from "../workflows/organizationWorkflowsTrigger/sendTerminateSignalToOrgWorkflow.ts";
+import { sendCancelSignalToOrgWorkflow } from "../workflows/organizationWorkflowsTrigger/sendCancelSignalToOrgWorkflow.ts";
 import Organization from "../models/Organization.js";
 
 export const createOrganizationController = async (req, res) => {
   const { name, identifier, createdByEmail } = req.body;
 
   if (!name || !identifier || !createdByEmail) {
-    return res.status(400).json({ error: "All fields are required." });
+    return res
+      .status(400)
+      .json({ error: `All fields are required.`, statusCode: 400 });
   }
 
   try {
-    // const existing = await Organization.findOne({ identifier });
-
-    // if (existing) {
-    //   return res
-    //     .status(400)
-    //     .json({ error: "Organization with this identifier already exists." });
-    // }
     const org = await Organization.create({
       name,
       identifier,
@@ -42,9 +37,10 @@ export const createOrganizationController = async (req, res) => {
     console.error("Error starting organization workflow:", error);
     console.error("ERROR STARTING WORKFLOW:");
     console.error(error);
-    res
-      .status(500)
-      .json({ error: "Failed to start organization creation workflow" });
+    res.status(500).json({
+      error: "Failed to start organization creation workflow",
+      statusCode: 500,
+    });
   }
 };
 
@@ -53,15 +49,19 @@ export const updateOrganizationController = async (req, res) => {
 
   const { name, identifier } = req.body;
 
-  if (!orgId) {
-    return res.status(400).json({ error: "Organization ID is required" });
+  if (!orgId || orgId == "undefined") {
+    return res
+      .status(404)
+      .json({ error: "Organization ID is required", statusCode: 404 });
   }
 
   try {
     const organization = await Organization.findById(orgId);
 
     if (!organization) {
-      return res.status(404).json({ error: "Organization not found" });
+      return res
+        .status(404)
+        .json({ error: "Organization not found", statusCode: 404 });
     }
 
     const { createdByEmail } = organization;
@@ -92,8 +92,10 @@ export const updateOrganizationController = async (req, res) => {
 export const deleteOrganizationController = async (req, res) => {
   const orgId = req.params.id;
 
-  if (!orgId) {
-    return res.status(400).json({ error: "orgId is required" });
+  if (!orgId || orgId == "undefined") {
+    return res
+      .status(400)
+      .json({ error: "orgId is required", statusCode: 400 });
   }
 
   try {

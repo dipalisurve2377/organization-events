@@ -1,9 +1,9 @@
-import { getTemporalClient } from "../../temporal/client";
+import { getTemporalClient } from "../../../temporal/client";
 
 import {
   DeleteOrganizationInput,
   deleteOrganizationWorkflow,
-} from "../../temporal/workflows/deleteOrganizationWorkflow";
+} from "../../../temporal/workflows/organizationWorkflows/deleteOrganizationWorkflow";
 
 export const triggerDeleteOrganization = async (
   input: DeleteOrganizationInput

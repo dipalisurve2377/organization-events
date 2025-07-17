@@ -1,9 +1,9 @@
-import { getTemporalClient } from "../../temporal/client.js";
+import { getTemporalClient } from "../../../temporal/client.js";
 
 import {
   createOrganizationWorkflow,
   CreateOrganizationInput,
-} from "../../temporal/workflows/createOrganizationWorkflow.js";
+} from "../../../temporal/workflows/organizationWorkflows/createOrganizationWorkflow.js";
 
 export const triggerCreateOrganization = async (
   input: CreateOrganizationInput

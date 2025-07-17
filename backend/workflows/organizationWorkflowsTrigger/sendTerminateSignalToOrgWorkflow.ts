@@ -1,5 +1,5 @@
-import { getTemporalClient } from "../../temporal/client";
-import { terminateWorkflowSignal } from "../../temporal/workflows/createOrganizationWorkflow";
+import { getTemporalClient } from "../../../temporal/client";
+import { terminateWorkflowSignal } from "../../../temporal/workflows/organizationWorkflows/createOrganizationWorkflow";
 
 interface TerminateSignalInput {
   workflowId: string;

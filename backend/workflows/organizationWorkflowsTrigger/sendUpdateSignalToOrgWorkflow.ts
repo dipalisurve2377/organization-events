@@ -1,5 +1,5 @@
-import { getTemporalClient } from "../../temporal/client";
-import { updateOrgPayloadSignal } from "../../temporal/workflows/createOrganizationWorkflow";
+import { getTemporalClient } from "../../../temporal/client";
+import { updateOrgPayloadSignal } from "../../../temporal/workflows/organizationWorkflows/createOrganizationWorkflow";
 
 interface UpdatePayloadInput {
   workflowId: string;

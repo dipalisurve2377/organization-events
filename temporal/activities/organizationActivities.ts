@@ -1,9 +1,9 @@
 import mongoose, { Error } from "mongoose";
 import nodemailer from "nodemailer";
-import { getAuth0Token } from "../auth0Service";
+import { getAuth0Token } from "../services/org_auth0Service";
 import dotenv from "dotenv";
 import axios, { AxiosError } from "axios";
-import { request } from "http";
+
 import { ApplicationFailure } from "@temporalio/client";
 
 dotenv.config();
@@ -68,14 +68,11 @@ export const createOrganizationInAuth0 = async (
   try {
     const token = await getAuth0Token();
 
-    console.log("Sending organization to Auth0", {
-      name,
-      identifier,
-      createdByEmail,
-    });
+    const url = `https://${process.env.AUTH0_ORG_DOMAIN}/api/v2/organizations`;
+    console.log("Calling URL:", url);
 
     const orgRes = await axios.post(
-      `https://${process.env.AUTH0_DOMAIN}/api/v2/organizations`,
+      `https://${process.env.AUTH0_ORG_DOMAIN}/api/v2/organizations`,
       {
         display_name: name,
         name: identifier,
@@ -84,6 +81,7 @@ export const createOrganizationInAuth0 = async (
         headers: {
           Authorization: `Bearer ${token}`,
         },
+        timeout: 5000,
       }
     );
 
@@ -311,7 +309,7 @@ export const updateOrganizationInAuth0 = async (
     }
 
     const response = await axios.patch(
-      `https://${process.env.AUTH0_DOMAIN}/api/v2/organizations/${org.auth0Id}`,
+      `https://${process.env.AUTH0_ORG_DOMAIN}/api/v2/organizations/${org.auth0Id}`,
       updatePayload,
       {
         headers: {
@@ -420,7 +418,7 @@ export const deleteOrganizationInAuth0 = async (
     console.log("Auth0Id for deleting organization", org.auth0Id);
 
     await axios.delete(
-      `https://${process.env.AUTH0_DOMAIN}/api/v2/organizations/${org.auth0Id}`,
+      `https://${process.env.AUTH0_ORG_DOMAIN}/api/v2/organizations/${org.auth0Id}`,
       {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -502,7 +500,7 @@ export const listOrganizationFromAuth0 = async (): Promise<any[]> => {
     const token = await getAuth0Token();
 
     const response = await axios.get(
-      `https://${process.env.AUTH0_DOMAIN}/api/v2/organizations`,
+      `https://${process.env.AUTH0_ORG_DOMAIN}/api/v2/organizations`,
       {
         headers: {
           Authorization: `Bearer ${token}`,

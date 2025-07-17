@@ -1,8 +1,8 @@
-import { getTemporalClient } from "../../temporal/client";
+import { getTemporalClient } from "../../../temporal/client";
 import {
   updateOrganizationWorkflow,
   UpdateOrganizationInput,
-} from "../../temporal/workflows/updateOrganizationWorkflow";
+} from "../../../temporal/workflows/organizationWorkflows/updateOrganizationWorkflow";
 
 export const triggerUpdateOrganization = async (
   input: UpdateOrganizationInput

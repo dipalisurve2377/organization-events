@@ -1,5 +1,5 @@
-import { getTemporalClient } from "../../temporal/client";
-import { listOrganizationWorkflow } from "../../temporal/workflows/listOrganizationsWorkflow";
+import { getTemporalClient } from "../../../temporal/client";
+import { listOrganizationWorkflow } from "../../../temporal/workflows/organizationWorkflows/listOrganizationsWorkflow";
 
 export const triggerListOrganizations = async () => {
   const client = await getTemporalClient();

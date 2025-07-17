@@ -1,5 +1,5 @@
 import { proxyActivities } from "@temporalio/workflow";
-import type * as activities from "../activities/activities.ts";
+import type * as activities from "../../activities/organizationActivities.ts";
 import { sleep } from "@temporalio/workflow";
 import { ApplicationFailure } from "@temporalio/workflow";
 import { defineSignal, setHandler } from "@temporalio/workflow";

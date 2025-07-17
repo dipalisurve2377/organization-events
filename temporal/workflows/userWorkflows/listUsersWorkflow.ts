@@ -1,7 +1,8 @@
 import { proxyActivities } from "@temporalio/workflow";
-import type * as activities from "../activities/activities.ts";
 
-const { listOrganizationFromAuth0 } = proxyActivities<typeof activities>({
+import type * as activities from "../../activities/userActivities.ts";
+
+const { listUsersFromAuth0 } = proxyActivities<typeof activities>({
   startToCloseTimeout: "10 seconds",
   retry: {
     maximumAttempts: 5,
@@ -12,12 +13,12 @@ const { listOrganizationFromAuth0 } = proxyActivities<typeof activities>({
   },
 });
 
-export async function listOrganizationWorkflow(): Promise<any[]> {
+export async function listUserWorkflow(): Promise<any[]> {
   try {
-    const orgs = await listOrganizationFromAuth0();
-    return orgs;
+    const users = await listUsersFromAuth0();
+    return users;
   } catch (error) {
-    console.error("List organizations workflow failed:", error);
+    console.error("List users workflow failed:", error);
     throw error;
   }
 }
