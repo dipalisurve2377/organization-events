@@ -446,10 +446,9 @@ describe('updateUserWorkflow', () => {
     const organizationId = 'org123';
 
     const partialUpdateError = ApplicationFailure.create({
-      message: 'Failed to update password field in Auth0',
+      message: 'Failed to update password field in Auth0. Failed fields: password. Successful fields: name',
       type: 'Auth0ValidationError',
-      nonRetryable: true,
-      details: { failedFields: ['password'], successfulFields: ['name'] }
+      nonRetryable: true
     });
 
     mockUpdateUserStatus.onCall(0).resolves(); // updating status
@@ -464,10 +463,8 @@ describe('updateUserWorkflow', () => {
       expect(error).to.be.instanceOf(ApplicationFailure);
       expect(error.type).to.equal('Auth0ValidationError');
       expect(error.message).to.include('Failed to update password field in Auth0');
-      expect(error.details).to.deep.equal({ 
-        failedFields: ['password'], 
-        successfulFields: ['name'] 
-      });
+      expect(error.message).to.include('Failed fields: password');
+      expect(error.message).to.include('Successful fields: name');
     }
   });
 
