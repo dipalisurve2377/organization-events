@@ -99,9 +99,9 @@ describe('createUserWorkflow', () => {
     expect(mockSaveAuth0IdToMongoDB.calledWith(email, auth0Id)).to.be.true;
 
     // Verify execution order
-    expect(mockUpdateUserStatus.firstCall.calledBefore(mockCreateUserInAuth0)).to.be.true;
-    expect(mockCreateUserInAuth0.calledBefore(mockSaveAuth0IdToMongoDB)).to.be.true;
-    expect(mockSaveAuth0IdToMongoDB.calledBefore(mockUpdateUserStatus.secondCall)).to.be.true;
+    expect(mockUpdateUserStatus.getCall(0).calledBefore(mockCreateUserInAuth0.getCall(0))).to.be.true;
+    expect(mockCreateUserInAuth0.getCall(0).calledBefore(mockSaveAuth0IdToMongoDB.getCall(0))).to.be.true;
+    expect(mockSaveAuth0IdToMongoDB.getCall(0).calledBefore(mockUpdateUserStatus.getCall(1))).to.be.true;
   });
 
   it('should successfully create a user without organizationId', async () => {
