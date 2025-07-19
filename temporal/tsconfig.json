@@ -5,20 +5,21 @@
     "lib": ["ES2020"],
     "outDir": "./dist",
     "rootDir": "./",
-    "strict": false,
+    "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
+    "moduleResolution": "node",
     "resolveJsonModule": true,
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
-    "noImplicitAny": false,
-    "allowJs": true
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "allowSyntheticDefaultImports": true,
+    "types": ["node", "mocha", "chai"]
   },
   "include": [
-    "tests/**/*",
-    "src/**/*",
     "**/*.ts"
   ],
   "exclude": [
@@ -27,8 +28,7 @@
   ],
   "ts-node": {
     "compilerOptions": {
-      "module": "commonjs",
-      "noImplicitAny": false
+      "module": "commonjs"
     }
   }
 }
