@@ -815,31 +815,23 @@ describe('User Integration Tests', () => {
 
       // Simulate concurrent user creation
       const createPromises = users.map(async (user, index) => {
-        // Reset create mock for each concurrent request
-        const userMockCreateUserInAuth0 = sinon.stub();
-        userMockCreateUserInAuth0.resolves(`auth0|concurrent${index + 1}`);
+        // Setup individual mock for each user
+        mockCreateUserInAuth0.reset();
+        mockCreateUserInAuth0.resetBehavior();
+        mockCreateUserInAuth0.resolves(`auth0|concurrent${index + 1}`);
 
-        // Temporarily replace the global mock
-        const originalMock = mockCreateUserInAuth0;
-        (global as any).mockCreateUserInAuth0 = userMockCreateUserInAuth0;
+        // Simulate different timing for each request
+        await new Promise(resolve => setTimeout(resolve, Math.random() * 50));
 
-        try {
-          // Simulate different timing for each request
-          await new Promise(resolve => setTimeout(resolve, Math.random() * 100));
+        const response = await request(app)
+          .post('/api/users')
+          .send({ ...user, organizationId });
 
-          const response = await request(app)
-            .post('/api/users')
-            .send({ ...user, organizationId });
-
-          return {
-            email: user.email,
-            success: response.status === 201,
-            auth0Id: response.body.auth0Id
-          };
-        } finally {
-          // Restore original mock
-          (global as any).mockCreateUserInAuth0 = originalMock;
-        }
+        return {
+          email: user.email,
+          success: response.status === 201,
+          auth0Id: response.body.auth0Id
+        };
       });
 
       const results = await Promise.all(createPromises);
@@ -934,7 +926,7 @@ describe('User Integration Tests', () => {
 
       const searchResponse = await request(app)
         .get('/api/users')
-        .query({ searchQuery: encodeURIComponent(searchQuery), organizationId });
+        .query({ searchQuery, organizationId });
 
       expect(searchResponse.status).to.equal(200);
       expect(searchResponse.body.users[0].name).to.equal(updates.name);
@@ -954,7 +946,7 @@ describe('User Integration Tests', () => {
 
       const deleteResponse = await request(app)
         .delete(`/api/users/${encodeURIComponent(email)}`)
-        .query({ organizationId: encodeURIComponent(organizationId) });
+        .query({ organizationId });
 
       expect(deleteResponse.status).to.equal(200);
       expect(deleteResponse.body.success).to.be.true;
