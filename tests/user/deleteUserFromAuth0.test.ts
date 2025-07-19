@@ -69,8 +69,17 @@ const deleteUserFromAuth0 = async (email: string): Promise<void> => {
       if (status === 404) {
         // User already deleted or doesn't exist - this is actually success
         console.log(`User not found in Auth0, may already be deleted: ${email}`);
-        await mockUpdateUserStatus(email, "deleted");
-        return;
+        try {
+          await mockUpdateUserStatus(email, "deleted");
+          return;
+        } catch (statusError: any) {
+          // If status update fails, still throw as ApplicationFailure
+          throw ApplicationFailure.create({
+            message: `Failed to update user status after Auth0 deletion (email: ${email}). ${statusError.message}`,
+            type: "Auth0DeleteUserError",
+            nonRetryable: false,
+          });
+        }
       } else if (status >= 400 && status < 500) {
         errorType = "Auth0ClientError";
         nonRetryable = true;
