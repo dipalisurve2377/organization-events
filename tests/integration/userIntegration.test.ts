@@ -567,7 +567,7 @@ describe('User Integration Tests', () => {
       mockUpdateUserStatus.resolves();
       mockSaveAuth0IdToMongoDB.resolves();
 
-      const results = [];
+      const results: Array<{ email: string; success: boolean; status: number }> = [];
 
       for (let i = 0; i < users.length; i++) {
         const user = users[i];
