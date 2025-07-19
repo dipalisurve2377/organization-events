@@ -157,40 +157,13 @@ describe('Organization Integration Tests', () => {
   const orgId = new mongoose.Types.ObjectId().toString();
 
   beforeEach(() => {
-    // Reset all stubs before each test
+    // Reset all stubs before each test - DO NOT set default behavior here
     Object.values(OrganizationMock).forEach((stub: any) => {
       if (stub.reset) stub.reset();
     });
     Object.values(workflowTriggers).forEach((stub: any) => {
       if (stub.reset) stub.reset();
     });
-
-    // Set default successful behavior
-    OrganizationMock.create.resolves({
-      _id: new mongoose.Types.ObjectId(),
-      name: testOrganization.name,
-      identifier: testOrganization.identifier,
-      createdByEmail: testOrganization.createdByEmail,
-      status: 'provisioning',
-      createdAt: new Date(),
-      updatedAt: new Date()
-    });
-
-    OrganizationMock.findById.resolves({
-      _id: orgId,
-      name: 'Existing Organization',
-      identifier: 'existing-org',
-      createdByEmail: 'admin@test.com',
-      status: 'success'
-    });
-
-    workflowTriggers.triggerCreateOrganization.resolves('create-workflow-123');
-    workflowTriggers.triggerUpdateOrganization.resolves('update-workflow-456');
-    workflowTriggers.triggerDeleteOrganization.resolves('delete-workflow-789');
-    workflowTriggers.triggerListOrganizations.resolves([
-      { id: 'org_123', name: 'Test Organization 1', display_name: 'Test Organization 1' },
-      { id: 'org_456', name: 'Test Organization 2', display_name: 'Test Organization 2' }
-    ]);
   });
 
   afterEach(() => {
@@ -199,6 +172,18 @@ describe('Organization Integration Tests', () => {
 
   describe('POST /api/organizations - Create Organization', () => {
     it('should create organization successfully', async () => {
+      // Set up successful behavior for this specific test
+      OrganizationMock.create.resolves({
+        _id: new mongoose.Types.ObjectId(),
+        name: testOrganization.name,
+        identifier: testOrganization.identifier,
+        createdByEmail: testOrganization.createdByEmail,
+        status: 'provisioning',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
+      workflowTriggers.triggerCreateOrganization.resolves('create-workflow-123');
+
       const response = await request(app)
         .post('/api/organizations')
         .send(testOrganization)
@@ -221,7 +206,7 @@ describe('Organization Integration Tests', () => {
     });
 
     it('should handle database errors gracefully', async () => {
-      // Override the default stub behavior for this test
+      // Set up error behavior for this specific test
       OrganizationMock.create.rejects(new Error('Database connection failed'));
 
       const response = await request(app)
@@ -234,7 +219,14 @@ describe('Organization Integration Tests', () => {
     });
 
     it('should handle workflow trigger errors gracefully', async () => {
-      // Override the default stub behavior for this test
+      // Set up mixed behavior - successful create but failed workflow trigger
+      OrganizationMock.create.resolves({
+        _id: new mongoose.Types.ObjectId(),
+        name: testOrganization.name,
+        identifier: testOrganization.identifier,
+        createdByEmail: testOrganization.createdByEmail,
+        status: 'provisioning'
+      });
       workflowTriggers.triggerCreateOrganization.rejects(new Error('Temporal workflow failed'));
 
       const response = await request(app)
@@ -248,6 +240,16 @@ describe('Organization Integration Tests', () => {
 
   describe('PUT /api/organizations/:id - Update Organization', () => {
     it('should update organization successfully', async () => {
+      // Set up successful behavior for this specific test
+      OrganizationMock.findById.resolves({
+        _id: orgId,
+        name: 'Existing Organization',
+        identifier: 'existing-org',
+        createdByEmail: 'admin@test.com',
+        status: 'success'
+      });
+      workflowTriggers.triggerUpdateOrganization.resolves('update-workflow-456');
+
       const updateData = {
         name: 'Updated Organization Name',
         identifier: 'updated-org-identifier'
@@ -275,7 +277,7 @@ describe('Organization Integration Tests', () => {
     });
 
     it('should return 404 when organization not found', async () => {
-      // Override the default stub behavior for this test
+      // Set up null return for this specific test
       OrganizationMock.findById.resolves(null);
 
       const response = await request(app)
@@ -287,7 +289,7 @@ describe('Organization Integration Tests', () => {
     });
 
     it('should handle database errors during update', async () => {
-      // Override the default stub behavior for this test
+      // Set up error behavior for this specific test
       OrganizationMock.findById.rejects(new Error('Database error'));
 
       const response = await request(app)
@@ -301,6 +303,16 @@ describe('Organization Integration Tests', () => {
 
   describe('DELETE /api/organizations/:id - Delete Organization', () => {
     it('should delete organization successfully', async () => {
+      // Set up successful behavior for this specific test
+      OrganizationMock.findById.resolves({
+        _id: orgId,
+        name: 'Existing Organization',
+        identifier: 'existing-org',
+        createdByEmail: 'admin@test.com',
+        status: 'success'
+      });
+      workflowTriggers.triggerDeleteOrganization.resolves('delete-workflow-789');
+
       const response = await request(app)
         .delete(`/api/organizations/${orgId}`)
         .expect(200);
@@ -321,7 +333,7 @@ describe('Organization Integration Tests', () => {
     });
 
     it('should return 404 when organization not found', async () => {
-      // Override the default stub behavior for this test
+      // Set up null return for this specific test
       OrganizationMock.findById.resolves(null);
 
       const response = await request(app)
@@ -332,7 +344,7 @@ describe('Organization Integration Tests', () => {
     });
 
     it('should handle database errors during deletion', async () => {
-      // Override the default stub behavior for this test
+      // Set up error behavior for this specific test
       OrganizationMock.findById.rejects(new Error('Database error'));
 
       const response = await request(app)
@@ -345,6 +357,12 @@ describe('Organization Integration Tests', () => {
 
   describe('GET /api/organizations - List Organizations', () => {
     it('should list organizations successfully', async () => {
+      // Set up successful behavior for this specific test
+      workflowTriggers.triggerListOrganizations.resolves([
+        { id: 'org_123', name: 'Test Organization 1', display_name: 'Test Organization 1' },
+        { id: 'org_456', name: 'Test Organization 2', display_name: 'Test Organization 2' }
+      ]);
+
       const response = await request(app)
         .get('/api/organizations')
         .expect(200);
@@ -357,7 +375,7 @@ describe('Organization Integration Tests', () => {
     });
 
     it('should handle empty organization list', async () => {
-      // Override the default stub behavior for this test
+      // Set up empty array return for this specific test
       workflowTriggers.triggerListOrganizations.resolves([]);
 
       const response = await request(app)
@@ -370,7 +388,7 @@ describe('Organization Integration Tests', () => {
     });
 
     it('should handle workflow errors during listing', async () => {
-      // Override the default stub behavior for this test
+      // Set up error behavior for this specific test
       workflowTriggers.triggerListOrganizations.rejects(new Error('Workflow failed'));
 
       const response = await request(app)
