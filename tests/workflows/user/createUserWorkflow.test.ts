@@ -59,10 +59,15 @@ const createUserWorkflow = async (
 
 describe('createUserWorkflow', () => {
   beforeEach(() => {
-    // Reset all mocks
+    // Reset all mocks completely
     mockCreateUserInAuth0.reset();
     mockSaveAuth0IdToMongoDB.reset();
     mockUpdateUserStatus.reset();
+    
+    // Clear all behaviors
+    mockCreateUserInAuth0.resetBehavior();
+    mockSaveAuth0IdToMongoDB.resetBehavior();
+    mockUpdateUserStatus.resetBehavior();
   });
 
   afterEach(() => {
@@ -93,8 +98,8 @@ describe('createUserWorkflow', () => {
 
     // Verify workflow steps executed in correct order
     expect(mockUpdateUserStatus.callCount).to.equal(2);
-    expect(mockUpdateUserStatus.firstCall.calledWith(email, "provisioning", organizationId, name)).to.be.true;
-    expect(mockUpdateUserStatus.secondCall.calledWith(email, "created", organizationId, name)).to.be.true;
+    expect(mockUpdateUserStatus.getCall(0).calledWith(email, "provisioning", organizationId, name)).to.be.true;
+    expect(mockUpdateUserStatus.getCall(1).calledWith(email, "created", organizationId, name)).to.be.true;
     expect(mockCreateUserInAuth0.calledWith(email, name, password)).to.be.true;
     expect(mockSaveAuth0IdToMongoDB.calledWith(email, auth0Id)).to.be.true;
 
@@ -125,8 +130,8 @@ describe('createUserWorkflow', () => {
       message: `User ${email} created successfully`
     });
 
-    expect(mockUpdateUserStatus.firstCall.calledWith(email, "provisioning", undefined, name)).to.be.true;
-    expect(mockUpdateUserStatus.secondCall.calledWith(email, "created", undefined, name)).to.be.true;
+    expect(mockUpdateUserStatus.getCall(0).calledWith(email, "provisioning", undefined, name)).to.be.true;
+    expect(mockUpdateUserStatus.getCall(1).calledWith(email, "created", undefined, name)).to.be.true;
   });
 
   it('should handle step 1 failure (updateUserStatus to provisioning)', async () => {
@@ -136,11 +141,14 @@ describe('createUserWorkflow', () => {
     const password = 'SecurePassword123!';
     const organizationId = 'org123';
 
-    mockUpdateUserStatus.onFirstCall().rejects(ApplicationFailure.create({
+    const provisioningError = ApplicationFailure.create({
       message: 'Status update to provisioning failed',
       type: 'DatabaseError',
       nonRetryable: false
-    }));
+    });
+
+    mockUpdateUserStatus.onCall(0).rejects(provisioningError);
+    mockUpdateUserStatus.onCall(1).resolves(); // For the "failed" status update
 
     // Act & Assert
     try {
@@ -165,12 +173,15 @@ describe('createUserWorkflow', () => {
     const password = 'SecurePassword123!';
     const organizationId = 'org123';
 
-    mockUpdateUserStatus.resolves();
-    mockCreateUserInAuth0.rejects(ApplicationFailure.create({
+    const auth0Error = ApplicationFailure.create({
       message: 'Auth0 user creation failed',
       type: 'Auth0ClientError',
       nonRetryable: true
-    }));
+    });
+
+    mockUpdateUserStatus.onCall(0).resolves(); // provisioning status
+    mockCreateUserInAuth0.rejects(auth0Error);
+    mockUpdateUserStatus.onCall(1).resolves(); // failed status
 
     // Act & Assert
     try {
@@ -184,8 +195,8 @@ describe('createUserWorkflow', () => {
 
     // Verify workflow attempted rollback
     expect(mockUpdateUserStatus.callCount).to.equal(2);
-    expect(mockUpdateUserStatus.firstCall.calledWith(email, "provisioning", organizationId, name)).to.be.true;
-    expect(mockUpdateUserStatus.secondCall.calledWith(email, "failed", organizationId, name)).to.be.true;
+    expect(mockUpdateUserStatus.getCall(0).calledWith(email, "provisioning", organizationId, name)).to.be.true;
+    expect(mockUpdateUserStatus.getCall(1).calledWith(email, "failed", organizationId, name)).to.be.true;
     
     // Subsequent steps should not be called
     expect(mockSaveAuth0IdToMongoDB.called).to.be.false;
@@ -199,13 +210,16 @@ describe('createUserWorkflow', () => {
     const organizationId = 'org123';
     const auth0Id = 'auth0|123456789';
 
-    mockUpdateUserStatus.resolves();
-    mockCreateUserInAuth0.resolves(auth0Id);
-    mockSaveAuth0IdToMongoDB.rejects(ApplicationFailure.create({
+    const mongoError = ApplicationFailure.create({
       message: 'MongoDB save failed',
       type: 'DatabaseError',
       nonRetryable: false
-    }));
+    });
+
+    mockUpdateUserStatus.onCall(0).resolves(); // provisioning status
+    mockCreateUserInAuth0.resolves(auth0Id);
+    mockSaveAuth0IdToMongoDB.rejects(mongoError);
+    mockUpdateUserStatus.onCall(1).resolves(); // failed status
 
     // Act & Assert
     try {
@@ -218,13 +232,13 @@ describe('createUserWorkflow', () => {
     }
 
     // Verify previous steps were executed
-    expect(mockUpdateUserStatus.firstCall.calledWith(email, "provisioning", organizationId, name)).to.be.true;
+    expect(mockUpdateUserStatus.getCall(0).calledWith(email, "provisioning", organizationId, name)).to.be.true;
     expect(mockCreateUserInAuth0.calledWith(email, name, password)).to.be.true;
     expect(mockSaveAuth0IdToMongoDB.calledWith(email, auth0Id)).to.be.true;
     
     // Verify rollback attempted
     expect(mockUpdateUserStatus.callCount).to.equal(2);
-    expect(mockUpdateUserStatus.secondCall.calledWith(email, "failed", organizationId, name)).to.be.true;
+    expect(mockUpdateUserStatus.getCall(1).calledWith(email, "failed", organizationId, name)).to.be.true;
   });
 
   it('should handle step 4 failure (updateUserStatus to created)', async () => {
@@ -235,14 +249,17 @@ describe('createUserWorkflow', () => {
     const organizationId = 'org123';
     const auth0Id = 'auth0|123456789';
 
-    mockUpdateUserStatus.onFirstCall().resolves();
-    mockCreateUserInAuth0.resolves(auth0Id);
-    mockSaveAuth0IdToMongoDB.resolves();
-    mockUpdateUserStatus.onSecondCall().rejects(ApplicationFailure.create({
+    const statusError = ApplicationFailure.create({
       message: 'Status update to created failed',
       type: 'DatabaseError',
       nonRetryable: false
-    }));
+    });
+
+    mockUpdateUserStatus.onCall(0).resolves(); // provisioning status
+    mockCreateUserInAuth0.resolves(auth0Id);
+    mockSaveAuth0IdToMongoDB.resolves();
+    mockUpdateUserStatus.onCall(1).rejects(statusError); // created status fails
+    mockUpdateUserStatus.onCall(2).resolves(); // failed status
 
     // Act & Assert
     try {
@@ -255,13 +272,13 @@ describe('createUserWorkflow', () => {
     }
 
     // Verify all previous steps were executed
-    expect(mockUpdateUserStatus.firstCall.calledWith(email, "provisioning", organizationId, name)).to.be.true;
+    expect(mockUpdateUserStatus.getCall(0).calledWith(email, "provisioning", organizationId, name)).to.be.true;
     expect(mockCreateUserInAuth0.calledWith(email, name, password)).to.be.true;
     expect(mockSaveAuth0IdToMongoDB.calledWith(email, auth0Id)).to.be.true;
     
     // Should have attempted to update to "created" and then to "failed"
     expect(mockUpdateUserStatus.callCount).to.equal(3);
-    expect(mockUpdateUserStatus.thirdCall.calledWith(email, "failed", organizationId, name)).to.be.true;
+    expect(mockUpdateUserStatus.getCall(2).calledWith(email, "failed", organizationId, name)).to.be.true;
   });
 
   it('should handle generic error and wrap it in ApplicationFailure', async () => {
@@ -270,8 +287,9 @@ describe('createUserWorkflow', () => {
     const name = 'Test User';
     const password = 'SecurePassword123!';
 
-    mockUpdateUserStatus.resolves();
+    mockUpdateUserStatus.onCall(0).resolves(); // provisioning status
     mockCreateUserInAuth0.rejects(new Error('Generic network error'));
+    mockUpdateUserStatus.onCall(1).resolves(); // failed status
 
     // Act & Assert
     try {
@@ -293,9 +311,9 @@ describe('createUserWorkflow', () => {
     const password = 'SecurePassword123!';
     const organizationId = 'org123';
 
-    mockUpdateUserStatus.onFirstCall().resolves();
+    mockUpdateUserStatus.onCall(0).resolves(); // provisioning status
     mockCreateUserInAuth0.rejects(new Error('Auth0 error'));
-    mockUpdateUserStatus.onSecondCall().rejects(new Error('Rollback status update failed'));
+    mockUpdateUserStatus.onCall(1).rejects(new Error('Rollback status update failed')); // failed status fails
 
     // Act & Assert
     try {
@@ -310,7 +328,7 @@ describe('createUserWorkflow', () => {
 
     // Should have attempted rollback even if it failed
     expect(mockUpdateUserStatus.callCount).to.equal(2);
-    expect(mockUpdateUserStatus.secondCall.calledWith(email, "failed", organizationId, name)).to.be.true;
+    expect(mockUpdateUserStatus.getCall(1).calledWith(email, "failed", organizationId, name)).to.be.true;
   });
 
   it('should handle special characters in user data', async () => {
@@ -332,7 +350,7 @@ describe('createUserWorkflow', () => {
     expect(result.success).to.be.true;
     expect(result.auth0Id).to.equal(auth0Id);
     expect(mockCreateUserInAuth0.calledWith(email, name, password)).to.be.true;
-    expect(mockUpdateUserStatus.firstCall.calledWith(email, "provisioning", organizationId, name)).to.be.true;
+    expect(mockUpdateUserStatus.getCall(0).calledWith(email, "provisioning", organizationId, name)).to.be.true;
   });
 
   it('should handle empty organizationId parameter', async () => {
@@ -352,7 +370,7 @@ describe('createUserWorkflow', () => {
 
     // Assert
     expect(result.success).to.be.true;
-    expect(mockUpdateUserStatus.firstCall.calledWith(email, "provisioning", organizationId, name)).to.be.true;
+    expect(mockUpdateUserStatus.getCall(0).calledWith(email, "provisioning", organizationId, name)).to.be.true;
   });
 
   it('should handle very long user data', async () => {
@@ -393,6 +411,10 @@ describe('createUserWorkflow', () => {
       mockUpdateUserStatus.reset();
       mockCreateUserInAuth0.reset();
       mockSaveAuth0IdToMongoDB.reset();
+      
+      mockUpdateUserStatus.resetBehavior();
+      mockCreateUserInAuth0.resetBehavior();
+      mockSaveAuth0IdToMongoDB.resetBehavior();
 
       mockUpdateUserStatus.resolves();
       mockCreateUserInAuth0.resolves(auth0Id);
