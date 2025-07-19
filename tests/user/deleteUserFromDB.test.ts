@@ -172,7 +172,7 @@ describe('deleteUserFromDB', () => {
 
     UserMock.findOne.resolves(mockUser);
     
-    const mongoError = new Error('Connection timeout');
+    const mongoError = new Error('Connection timeout') as any;
     mongoError.name = 'MongoError';
     mongoError.code = 89; // Connection timeout
     UserMock.deleteOne.rejects(mongoError);
@@ -197,7 +197,7 @@ describe('deleteUserFromDB', () => {
 
     UserMock.findOne.resolves(mockUser);
     
-    const mongoError = new Error('Duplicate key error');
+    const mongoError = new Error('Duplicate key error') as any;
     mongoError.name = 'MongoError';
     mongoError.code = 11000;
     UserMock.deleteOne.rejects(mongoError);
@@ -222,7 +222,7 @@ describe('deleteUserFromDB', () => {
 
     UserMock.findOne.resolves(mockUser);
     
-    const mongoError = new Error('Document validation failed');
+    const mongoError = new Error('Document validation failed') as any;
     mongoError.name = 'MongoError';
     mongoError.code = 121;
     UserMock.deleteOne.rejects(mongoError);
@@ -247,7 +247,7 @@ describe('deleteUserFromDB', () => {
 
     UserMock.findOne.resolves(mockUser);
     
-    const castError = new Error('Cast to ObjectId failed');
+    const castError = new Error('Cast to ObjectId failed') as any;
     castError.name = 'CastError';
     UserMock.deleteOne.rejects(castError);
 
@@ -271,7 +271,7 @@ describe('deleteUserFromDB', () => {
 
     UserMock.findOne.resolves(mockUser);
     
-    const networkError = new Error('Connection refused');
+    const networkError = new Error('Connection refused') as any;
     networkError.code = 'ECONNREFUSED';
     UserMock.deleteOne.rejects(networkError);
 
@@ -295,7 +295,7 @@ describe('deleteUserFromDB', () => {
 
     UserMock.findOne.resolves(mockUser);
     
-    const validationError = new Error('Validation failed');
+    const validationError = new Error('Validation failed') as any;
     validationError.name = 'ValidationError';
     UserMock.deleteOne.rejects(validationError);
 
@@ -417,7 +417,7 @@ describe('deleteUserFromDB', () => {
 
     UserMock.findOne.resolves(mockUser);
     
-    const networkError = new Error('Domain not found');
+    const networkError = new Error('Domain not found') as any;
     networkError.code = 'ENOTFOUND';
     UserMock.deleteOne.rejects(networkError);
 
@@ -441,7 +441,7 @@ describe('deleteUserFromDB', () => {
 
     UserMock.findOne.resolves(mockUser);
     
-    const mongoError = new Error('Server error');
+    const mongoError = new Error('Server error') as any;
     mongoError.name = 'MongoServerError';
     mongoError.code = 13; // Unauthorized
     UserMock.deleteOne.rejects(mongoError);
