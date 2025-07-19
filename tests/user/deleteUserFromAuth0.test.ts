@@ -7,11 +7,14 @@ import { ApplicationFailure } from '@temporalio/client';
 const UserMock = {
   findOne: sinon.stub(),
   findById: sinon.stub(),
-  create: sinon.stub()
+  deleteOne: sinon.stub()
 };
 
 // Mock the getAuth0Token function
 const mockGetAuth0Token = sinon.stub();
+
+// Mock the updateUserStatus function
+const mockUpdateUserStatus = sinon.stub();
 
 // Mock the deleteUserFromAuth0 activity function
 const deleteUserFromAuth0 = async (email: string): Promise<void> => {
@@ -22,7 +25,7 @@ const deleteUserFromAuth0 = async (email: string): Promise<void> => {
 
     if (!user || !user.auth0Id) {
       throw ApplicationFailure.create({
-        message: `User not found or missing Auth0 ID for email: ${email}`,
+        message: `User or Auth0 ID not found for email: ${email}`,
         type: "MissingAuth0ID",
         nonRetryable: true,
       });
@@ -35,9 +38,13 @@ const deleteUserFromAuth0 = async (email: string): Promise<void> => {
       {
         headers: {
           Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
       }
     );
+
+    // Update user status to deleted in MongoDB
+    await mockUpdateUserStatus(email, "deleted");
 
     console.log(`User deleted from Auth0: ${email}`);
   } catch (error: any) {
@@ -58,7 +65,13 @@ const deleteUserFromAuth0 = async (email: string): Promise<void> => {
         errorMessage += `. Message: ${data.message}`;
       }
 
-      if (status >= 400 && status < 500) {
+      // Handle specific Auth0 error cases
+      if (status === 404) {
+        // User already deleted or doesn't exist - this is actually success
+        console.log(`User not found in Auth0, may already be deleted: ${email}`);
+        await mockUpdateUserStatus(email, "deleted");
+        return;
+      } else if (status >= 400 && status < 500) {
         errorType = "Auth0ClientError";
         nonRetryable = true;
       } else if (status >= 500) {
@@ -85,6 +98,7 @@ describe('deleteUserFromAuth0', () => {
   beforeEach(() => {
     axiosDeleteStub = sinon.stub(axios, 'delete');
     mockGetAuth0Token.reset();
+    mockUpdateUserStatus.reset();
     UserMock.findOne.reset();
     
     // Set default environment variables
@@ -104,6 +118,7 @@ describe('deleteUserFromAuth0', () => {
     mockGetAuth0Token.resolves(mockToken);
     UserMock.findOne.resolves({ email, auth0Id });
     axiosDeleteStub.resolves({ status: 204 });
+    mockUpdateUserStatus.resolves();
 
     // Act
     await deleteUserFromAuth0(email);
@@ -112,10 +127,12 @@ describe('deleteUserFromAuth0', () => {
     expect(mockGetAuth0Token.calledOnce).to.be.true;
     expect(UserMock.findOne.calledWith({ email })).to.be.true;
     expect(axiosDeleteStub.calledOnce).to.be.true;
+    expect(mockUpdateUserStatus.calledWith(email, "deleted")).to.be.true;
 
     const [url, config] = axiosDeleteStub.firstCall.args;
     expect(url).to.equal(`https://test-domain.auth0.com/api/v2/users/${auth0Id}`);
     expect(config.headers.Authorization).to.equal(`Bearer ${mockToken}`);
+    expect(config.headers['Content-Type']).to.equal('application/json');
   });
 
   it('should handle user not found in database', async () => {
@@ -132,7 +149,7 @@ describe('deleteUserFromAuth0', () => {
       expect(error).to.be.instanceOf(ApplicationFailure);
       expect(error.type).to.equal('MissingAuth0ID');
       expect(error.nonRetryable).to.be.true;
-      expect(error.message).to.include(`User not found or missing Auth0 ID for email: ${email}`);
+      expect(error.message).to.include(`User or Auth0 ID not found for email: ${email}`);
     }
   });
 
@@ -150,11 +167,11 @@ describe('deleteUserFromAuth0', () => {
       expect(error).to.be.instanceOf(ApplicationFailure);
       expect(error.type).to.equal('MissingAuth0ID');
       expect(error.nonRetryable).to.be.true;
-      expect(error.message).to.include(`User not found or missing Auth0 ID for email: ${email}`);
+      expect(error.message).to.include(`User or Auth0 ID not found for email: ${email}`);
     }
   });
 
-  it('should handle Auth0 client errors (4xx) as non-retryable', async () => {
+  it('should handle Auth0 404 (user not found) as success', async () => {
     // Arrange
     const email = 'test@example.com';
     const auth0Id = 'auth0|123456789';
@@ -165,7 +182,31 @@ describe('deleteUserFromAuth0', () => {
     axiosDeleteStub.rejects({
       response: {
         status: 404,
-        data: { message: 'User not found in Auth0' }
+        data: { message: 'User not found' }
+      }
+    });
+    mockUpdateUserStatus.resolves();
+
+    // Act
+    await deleteUserFromAuth0(email);
+
+    // Assert
+    expect(axiosDeleteStub.calledOnce).to.be.true;
+    expect(mockUpdateUserStatus.calledWith(email, "deleted")).to.be.true;
+  });
+
+  it('should handle Auth0 client errors (4xx except 404) as non-retryable', async () => {
+    // Arrange
+    const email = 'test@example.com';
+    const auth0Id = 'auth0|123456789';
+    const mockToken = 'mock-auth0-token';
+
+    mockGetAuth0Token.resolves(mockToken);
+    UserMock.findOne.resolves({ email, auth0Id });
+    axiosDeleteStub.rejects({
+      response: {
+        status: 400,
+        data: { message: 'Bad request' }
       }
     });
 
@@ -178,8 +219,8 @@ describe('deleteUserFromAuth0', () => {
       expect(error.type).to.equal('Auth0ClientError');
       expect(error.nonRetryable).to.be.true;
       expect(error.message).to.include('Failed to delete user');
-      expect(error.message).to.include('Status: 404');
-      expect(error.message).to.include('User not found in Auth0');
+      expect(error.message).to.include('Status: 400');
+      expect(error.message).to.include('Bad request');
     }
   });
 
@@ -269,7 +310,10 @@ describe('deleteUserFromAuth0', () => {
       await deleteUserFromAuth0(email);
       expect.fail('Should have thrown an error');
     } catch (error: any) {
-      expect(error.message).to.equal('Database connection failed');
+      expect(error).to.be.instanceOf(ApplicationFailure);
+      expect(error.type).to.equal('Auth0DeleteUserError');
+      expect(error.nonRetryable).to.be.false;
+      expect(error.message).to.include('Failed to delete user');
     }
   });
 
@@ -284,7 +328,61 @@ describe('deleteUserFromAuth0', () => {
       await deleteUserFromAuth0(email);
       expect.fail('Should have thrown an error');
     } catch (error: any) {
-      expect(error.message).to.equal('Token fetch failed');
+      expect(error).to.be.instanceOf(ApplicationFailure);
+      expect(error.type).to.equal('Auth0DeleteUserError');
+      expect(error.nonRetryable).to.be.false;
+      expect(error.message).to.include('Failed to delete user');
+    }
+  });
+
+  it('should handle updateUserStatus failure after successful Auth0 deletion', async () => {
+    // Arrange
+    const email = 'test@example.com';
+    const auth0Id = 'auth0|123456789';
+    const mockToken = 'mock-auth0-token';
+
+    mockGetAuth0Token.resolves(mockToken);
+    UserMock.findOne.resolves({ email, auth0Id });
+    axiosDeleteStub.resolves({ status: 204 });
+    mockUpdateUserStatus.rejects(new Error('Status update failed'));
+
+    // Act & Assert
+    try {
+      await deleteUserFromAuth0(email);
+      expect.fail('Should have thrown an error');
+    } catch (error: any) {
+      expect(error).to.be.instanceOf(ApplicationFailure);
+      expect(error.type).to.equal('Auth0DeleteUserError');
+      expect(error.nonRetryable).to.be.false;
+      expect(error.message).to.include('Failed to delete user');
+    }
+  });
+
+  it('should handle updateUserStatus failure after 404 (user not found)', async () => {
+    // Arrange
+    const email = 'test@example.com';
+    const auth0Id = 'auth0|123456789';
+    const mockToken = 'mock-auth0-token';
+
+    mockGetAuth0Token.resolves(mockToken);
+    UserMock.findOne.resolves({ email, auth0Id });
+    axiosDeleteStub.rejects({
+      response: {
+        status: 404,
+        data: { message: 'User not found' }
+      }
+    });
+    mockUpdateUserStatus.rejects(new Error('Status update failed'));
+
+    // Act & Assert
+    try {
+      await deleteUserFromAuth0(email);
+      expect.fail('Should have thrown an error');
+    } catch (error: any) {
+      expect(error).to.be.instanceOf(ApplicationFailure);
+      expect(error.type).to.equal('Auth0DeleteUserError');
+      expect(error.nonRetryable).to.be.false;
+      expect(error.message).to.include('Failed to delete user');
     }
   });
 
@@ -316,11 +414,20 @@ describe('deleteUserFromAuth0', () => {
     }
   });
 
-  it('should handle user with empty auth0Id string', async () => {
+  it('should handle Auth0 forbidden error (403)', async () => {
     // Arrange
     const email = 'test@example.com';
+    const auth0Id = 'auth0|123456789';
+    const mockToken = 'mock-auth0-token';
 
-    UserMock.findOne.resolves({ email, auth0Id: '' });
+    mockGetAuth0Token.resolves(mockToken);
+    UserMock.findOne.resolves({ email, auth0Id });
+    axiosDeleteStub.rejects({
+      response: {
+        status: 403,
+        data: { message: 'Forbidden' }
+      }
+    });
 
     // Act & Assert
     try {
@@ -328,8 +435,10 @@ describe('deleteUserFromAuth0', () => {
       expect.fail('Should have thrown an error');
     } catch (error: any) {
       expect(error).to.be.instanceOf(ApplicationFailure);
-      expect(error.type).to.equal('MissingAuth0ID');
+      expect(error.type).to.equal('Auth0ClientError');
       expect(error.nonRetryable).to.be.true;
+      expect(error.message).to.include('Status: 403');
+      expect(error.message).to.include('Forbidden');
     }
   });
 
@@ -358,6 +467,69 @@ describe('deleteUserFromAuth0', () => {
       expect(error.nonRetryable).to.be.true;
       expect(error.message).to.include('Status: 429');
       expect(error.message).to.include('Too many requests');
+    }
+  });
+
+  it('should handle special characters in email', async () => {
+    // Arrange
+    const email = 'test+user@example-domain.com';
+    const auth0Id = 'auth0|123456789';
+    const mockToken = 'mock-auth0-token';
+
+    mockGetAuth0Token.resolves(mockToken);
+    UserMock.findOne.resolves({ email, auth0Id });
+    axiosDeleteStub.resolves({ status: 204 });
+    mockUpdateUserStatus.resolves();
+
+    // Act
+    await deleteUserFromAuth0(email);
+
+    // Assert
+    expect(UserMock.findOne.calledWith({ email })).to.be.true;
+    expect(axiosDeleteStub.calledOnce).to.be.true;
+    expect(mockUpdateUserStatus.calledWith(email, "deleted")).to.be.true;
+  });
+
+  it('should handle ENOTFOUND network error', async () => {
+    // Arrange
+    const email = 'test@example.com';
+    const auth0Id = 'auth0|123456789';
+    const mockToken = 'mock-auth0-token';
+
+    mockGetAuth0Token.resolves(mockToken);
+    UserMock.findOne.resolves({ email, auth0Id });
+    axiosDeleteStub.rejects({
+      code: 'ENOTFOUND',
+      message: 'Domain not found'
+    });
+
+    // Act & Assert
+    try {
+      await deleteUserFromAuth0(email);
+      expect.fail('Should have thrown an error');
+    } catch (error: any) {
+      expect(error).to.be.instanceOf(ApplicationFailure);
+      expect(error.type).to.equal('NetworkError');
+      expect(error.nonRetryable).to.be.false;
+      expect(error.message).to.include('Failed to delete user');
+    }
+  });
+
+  it('should handle empty auth0Id string', async () => {
+    // Arrange
+    const email = 'test@example.com';
+
+    UserMock.findOne.resolves({ email, auth0Id: '' });
+
+    // Act & Assert
+    try {
+      await deleteUserFromAuth0(email);
+      expect.fail('Should have thrown an error');
+    } catch (error: any) {
+      expect(error).to.be.instanceOf(ApplicationFailure);
+      expect(error.type).to.equal('MissingAuth0ID');
+      expect(error.nonRetryable).to.be.true;
+      expect(error.message).to.include(`User or Auth0 ID not found for email: ${email}`);
     }
   });
 });
