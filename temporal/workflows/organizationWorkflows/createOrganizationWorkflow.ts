@@ -39,9 +39,25 @@ const {
   },
 });
 
+let shouldTerminate = false;
+
 export async function createOrganizationWorkflow(
   input: CreateOrganizationInput
 ): Promise<void> {
+  // handler for terminate workflow
+  setHandler(terminateWorkflowSignal, () => {
+    console.log("Terminate signal received");
+    shouldTerminate = true;
+  });
+
+  // handler for the cancel workflow
+  let shouldCancel = false;
+
+  setHandler(cancelWorkflowSignal, () => {
+    console.log("Cancel signal received. Workflow will exit.");
+    shouldCancel = true;
+  });
+
   const { orgId, name, identifier, createdByEmail } = input;
 
   try {
@@ -57,6 +73,23 @@ export async function createOrganizationWorkflow(
     await updateOrganizationStatus(orgId, "success");
 
     await sendNotificationEmail(createdByEmail, name);
+
+    // Check for termination in loop
+    for (let i = 0; i < 60; i++) {
+      if (shouldTerminate) {
+        console.log("Workflow terminated early via signal.");
+        return;
+      }
+      await sleep("1s");
+    }
+
+    for (let i = 0; i < 60; i++) {
+      if (shouldCancel) {
+        console.log("Workflow canceled by signal.");
+        return;
+      }
+      await sleep("1s");
+    }
   } catch (error: any) {
     console.error("Workflow failed:", error);
 

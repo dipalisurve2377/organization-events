@@ -1,0 +1,32 @@
+{
+  "name": "your-project-name",
+  "version": "1.0.0",
+  "type": "commonjs",
+  "scripts": {
+    "test": "mocha --exit --require ts-node/register --require source-map-support/register --extension ts ./tests/organization/listOrganizationFromAuth0.test.ts"
+  },
+  "devDependencies": {
+    "@temporalio/testing": "^1.12.1",
+    "@types/axios": "^0.9.36",
+    "@types/chai": "^5.2.2",
+    "@types/jest": "^30.0.0",
+    "@types/mocha": "^10.0.10",
+    "@types/sinon": "^17.0.4",
+    "chai": "^5.2.1",
+    "dotenv": "^17.2.0",
+    "jest": "^30.0.4",
+    "mocha": "^11.7.1",
+    "mongodb-memory-server": "^10.1.4",
+    "sinon": "^21.0.0",
+    "supertest": "^7.1.3",
+    "ts-jest": "^29.4.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "@temporalio/client": "^1.12.1",
+    "axios": "^1.10.0",
+    "mongoose": "^8.16.4",
+    "nodemailer": "^7.0.5"
+  }
+}

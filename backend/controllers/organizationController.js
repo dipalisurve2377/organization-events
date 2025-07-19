@@ -166,7 +166,7 @@ export const sendUpdateSignalController = async (req, res) => {
 // controller to trigger terminate signal
 
 export const sendTerminateSignalController = async (req, res) => {
-  const { workflowId } = req.body;
+  const workflowId = req.params.id;
 
   if (!workflowId) {
     return res
@@ -186,8 +186,7 @@ export const sendTerminateSignalController = async (req, res) => {
 // controller to cancel workflow
 
 export const sendCancelSignalController = async (req, res) => {
-  const { workflowId } = req.body;
-
+  const workflowId = req.params.id;
   if (!workflowId) {
     return res.status(400).json({ error: "workflowId is required" });
   }

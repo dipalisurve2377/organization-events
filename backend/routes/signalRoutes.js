@@ -5,7 +5,7 @@ import { sendCancelSignalController } from "../controllers/organizationControlle
 
 const router = express.Router();
 
-router.post("/:id", sendTerminateSignalController);
-router.post("/:id", sendCancelSignalController);
+router.post("/:id/terminate", sendTerminateSignalController);
+router.post("/:id/cancel", sendCancelSignalController);
 
 export default router;

@@ -509,40 +509,20 @@ export const listOrganizationFromAuth0 = async (): Promise<any[]> => {
     );
     return response.data;
   } catch (error: any) {
-    let errorMessage = `Failed to list organizations from Auth0`;
-
-    if (axios.isAxiosError(error) && error.response) {
-      const status = error.response.status;
-      const data = JSON.stringify(error.response.data);
-      errorMessage += ` — Auth0 responded with status ${status}: ${data}`;
-
-      if (status >= 400 && status < 500) {
-        throw ApplicationFailure.create({
-          message: errorMessage,
-          type: "Auth0ClientError",
-          nonRetryable: true,
-        });
-      }
-
+    const status = error.response?.status;
+    const isNonRetryable = status >= 400 && status < 500;
+    if (isNonRetryable) {
       throw ApplicationFailure.create({
-        message: errorMessage,
-        type: "Auth0ServerError",
-        nonRetryable: false,
-      });
-    } else if (axios.isAxiosError(error) && error.request) {
-      errorMessage += " — No response received from Auth0 (network issue).";
-      throw ApplicationFailure.create({
-        message: errorMessage,
-        type: "NetworkError",
-        nonRetryable: false,
+        nonRetryable: true,
+        message: "Sending email to User Activity failed",
+        details: [
+          error.response?.data
+            ? JSON.stringify(error.response.data)
+            : undefined,
+        ],
       });
     } else {
-      errorMessage += ` — Unexpected error: ${error?.message || "Unknown"}`;
-      throw ApplicationFailure.create({
-        message: errorMessage,
-        type: "GenericListFailure",
-        nonRetryable: true,
-      });
+      throw error;
     }
   }
 };

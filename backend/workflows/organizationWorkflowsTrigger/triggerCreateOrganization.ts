@@ -1,4 +1,4 @@
-import { getTemporalClient } from "../../../temporal/client.js";
+import { getTemporalClient } from "../../../temporal/client";
 
 import {
   createOrganizationWorkflow,
