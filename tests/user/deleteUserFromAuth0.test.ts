@@ -391,7 +391,7 @@ describe('deleteUserFromAuth0', () => {
       expect(error).to.be.instanceOf(ApplicationFailure);
       expect(error.type).to.equal('Auth0DeleteUserError');
       expect(error.nonRetryable).to.be.false;
-      expect(error.message).to.include('Failed to delete user');
+      expect(error.message).to.include('Failed to update user status after Auth0 deletion');
     }
   });
 
