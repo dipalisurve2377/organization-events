@@ -1,388 +1,1012 @@
 import { expect } from 'chai';
-import request from 'supertest';
-import express, { Request, Response } from 'express';
 import sinon from 'sinon';
-import mongoose from 'mongoose';
+import request from 'supertest';
+import express from 'express';
+import { ApplicationFailure } from '@temporalio/client';
 
-// Create Express app for testing
-const app = express();
-app.use(express.json());
+// Mock all user activities
+const mockCreateUserInAuth0 = sinon.stub();
+const mockSaveAuth0IdToMongoDB = sinon.stub();
+const mockUpdateUserInAuth0 = sinon.stub();
+const mockUpdateUserStatus = sinon.stub();
+const mockDeleteUserFromAuth0 = sinon.stub();
+const mockDeleteUserFromDB = sinon.stub();
+const mockListUsersFromAuth0 = sinon.stub();
 
-// Mock the User model
-const UserMock = {
-  create: sinon.stub(),
-  findOne: sinon.stub(),
-  findById: sinon.stub(),
-  findByIdAndUpdate: sinon.stub(),
-  findByIdAndDelete: sinon.stub()
-};
+// Mock Express app with all user routes
+const createMockApp = () => {
+  const app = express();
+  app.use(express.json());
 
-// Mock workflow triggers
-const workflowTriggers = {
-  triggerCreateUser: sinon.stub(),
-  triggerUpdateUser: sinon.stub(),
-  triggerDeleteUser: sinon.stub(),
-  triggerListUsers: sinon.stub()
-};
-
-// Mock the controller functions directly
-const userController = {
-  createUserController: async (req: Request, res: Response) => {
-    const { email, password, name } = req.body;
-
-    if (!email || !password || !name) {
-      return res.status(400).json({ error: `All fields are required.`, statusCode: 400 });
-    }
-
+  // Create User Route
+  app.post('/api/users', async (req, res) => {
     try {
-      const user = await UserMock.create({
-        email,
-        name,
-        status: "provisioning",
-      });
+      const { email, name, password, organizationId } = req.body;
 
-      const workflowId = await workflowTriggers.triggerCreateUser({
-        email,
-        password,
-        name,
+      // Step 1: Update user status to "provisioning"
+      await mockUpdateUserStatus(email, "provisioning", organizationId, name);
+
+      // Step 2: Create user in Auth0
+      const auth0Id = await mockCreateUserInAuth0(email, name, password);
+
+      // Step 3: Save Auth0 ID to MongoDB
+      await mockSaveAuth0IdToMongoDB(email, auth0Id);
+
+      // Step 4: Update user status to "created"
+      await mockUpdateUserStatus(email, "created", organizationId, name);
+
+      res.status(201).json({
+        success: true,
+        auth0Id,
+        message: `User ${email} created successfully`
       });
-      res.status(200).json({ message: "User provisioning started", workflowId });
     } catch (error: any) {
-      console.error("Error starting user workflow:", error);
-      res.status(500).json({
-        error: "Failed to start user creation workflow",
-        statusCode: 500,
-      });
-    }
-  },
-
-  updateUserController: async (req: Request, res: Response) => {
-    const email = req.params.email;
-    const { name, password } = req.body;
-
-    if (!email || email === "undefined") {
-      return res.status(404).json({ error: "Email is required", statusCode: 404 });
-    }
-
-    try {
-      const user = await UserMock.findOne({ email });
-
-      if (!user) {
-        return res.status(404).json({ error: "User not found", statusCode: 404 });
+      // Rollback status
+      try {
+        await mockUpdateUserStatus(req.body.email, "failed", req.body.organizationId, req.body.name);
+      } catch (rollbackError) {
+        console.error("Rollback failed:", rollbackError);
       }
 
-      const workflowId = await workflowTriggers.triggerUpdateUser({
-        email,
-        name,
-        password,
-      });
-      res.status(200).json({ message: "User update started", workflowId });
-    } catch (error: any) {
-      console.error("Error starting user update workflow:", error);
-      res.status(500).json({ error: "Failed to start user update workflow" });
-    }
-  },
-
-  deleteUserController: async (req: Request, res: Response) => {
-    const email = req.params.email;
-
-    if (!email || email === "undefined") {
-      return res.status(400).json({ error: "Email is required", statusCode: 400 });
-    }
-
-    try {
-      const user = await UserMock.findOne({ email });
-
-      if (!user) {
-        return res.status(404).json({ error: "User not found" });
+      if (error instanceof ApplicationFailure) {
+        res.status(error.nonRetryable ? 400 : 500).json({
+          success: false,
+          error: error.message,
+          type: error.type
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          error: error.message
+        });
       }
+    }
+  });
 
-      const workflowId = await workflowTriggers.triggerDeleteUser({
-        email,
-      });
+  // Update User Route
+  app.put('/api/users/:email', async (req, res) => {
+    try {
+      const { email } = req.params;
+      const { updates, organizationId } = req.body;
+
+      // Step 1: Update user status to "updating"
+      await mockUpdateUserStatus(email, "updating", organizationId);
+
+      // Step 2: Update user in Auth0
+      const updatedFields = await mockUpdateUserInAuth0(email, updates);
+
+      // Step 3: Update user status to "active"
+      await mockUpdateUserStatus(email, "active", organizationId);
+
       res.status(200).json({
-        message: "User deletion started",
-        workflowId,
+        success: true,
+        message: `User ${email} updated successfully`,
+        updatedFields
       });
     } catch (error: any) {
-      console.error("Error starting user delete workflow:", error);
-      res.status(500).json({ error: "Failed to start user deletion workflow" });
-    }
-  },
+      // Rollback status
+      try {
+        await mockUpdateUserStatus(req.params.email, "failed", req.body.organizationId);
+      } catch (rollbackError) {
+        console.error("Rollback failed:", rollbackError);
+      }
 
-  listUsersController: async (req: Request, res: Response) => {
+      if (error instanceof ApplicationFailure) {
+        res.status(error.nonRetryable ? 400 : 500).json({
+          success: false,
+          error: error.message,
+          type: error.type
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          error: error.message
+        });
+      }
+    }
+  });
+
+  // Delete User Route
+  app.delete('/api/users/:email', async (req, res) => {
     try {
-      const users = await workflowTriggers.triggerListUsers();
+      const { email } = req.params;
+      const { organizationId } = req.query;
 
-      const cleanedUsers = users.map((user: any) => ({
-        name: user.name,
-        email: user.email,
-        userId: user.user_id,
-        createdAt: user.created_at,
-      }));
+      // Step 1: Update user status to "deleting"
+      await mockUpdateUserStatus(email, "deleting", organizationId as string);
 
-      res.status(200).json({ 
-        users: cleanedUsers,
-        count: cleanedUsers.length
+      const deletedFrom: string[] = [];
+
+      // Step 2: Delete user from Auth0
+      try {
+        await mockDeleteUserFromAuth0(email);
+        deletedFrom.push('Auth0');
+      } catch (error: any) {
+        if (!error.message?.includes('404') && !error.message?.includes('not found')) {
+          throw error;
+        }
+      }
+
+      // Step 3: Delete user from MongoDB
+      try {
+        await mockDeleteUserFromDB(email);
+        deletedFrom.push('MongoDB');
+      } catch (error: any) {
+        if (!error.message?.includes('not found') && !error.message?.includes('No user found')) {
+          throw error;
+        }
+      }
+
+      // Step 4: Update user status to "deleted" (if any records were deleted)
+      if (deletedFrom.length > 0) {
+        try {
+          await mockUpdateUserStatus(email, "deleted", organizationId as string);
+        } catch (statusError) {
+          console.warn("Failed to update status to deleted:", statusError);
+        }
+      }
+
+      res.status(200).json({
+        success: true,
+        message: `User ${email} deletion completed`,
+        deletedFrom
       });
     } catch (error: any) {
-      console.error("Error listing users:", error);
-      res.status(500).json({ error: "Failed to list users" });
-    }
-  }
-};
+      // Rollback status
+      try {
+        await mockUpdateUserStatus(req.params.email, "failed", req.query.organizationId as string);
+      } catch (rollbackError) {
+        console.error("Rollback failed:", rollbackError);
+      }
 
-// Setup routes
-app.post('/api/users', userController.createUserController);
-app.put('/api/users/:email', userController.updateUserController);
-app.delete('/api/users/:email', userController.deleteUserController);
-app.get('/api/users', userController.listUsersController);
+      if (error instanceof ApplicationFailure) {
+        res.status(error.nonRetryable ? 400 : 500).json({
+          success: false,
+          error: error.message,
+          type: error.type
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          error: error.message
+        });
+      }
+    }
+  });
+
+  // List Users Route
+  app.get('/api/users', async (req, res) => {
+    try {
+      const { page = '0', perPage = '50', searchQuery, organizationId } = req.query;
+      const pageNum = parseInt(page as string);
+      const perPageNum = parseInt(perPage as string);
+
+      // Step 1: Update workflow status to "fetching" (optional)
+      if (organizationId) {
+        try {
+          await mockUpdateUserStatus('workflow', "fetching", organizationId as string);
+        } catch (statusError) {
+          console.warn('Failed to update workflow status:', statusError);
+        }
+      }
+
+      // Step 2: List users from Auth0
+      const auth0Response = await mockListUsersFromAuth0(pageNum, perPageNum, searchQuery);
+
+      // Step 3: Update workflow status to "completed" (optional)
+      if (organizationId) {
+        try {
+          await mockUpdateUserStatus('workflow', "completed", organizationId as string);
+        } catch (statusError) {
+          console.warn('Failed to update workflow status to completed:', statusError);
+        }
+      }
+
+      res.status(200).json({
+        success: true,
+        message: `Successfully retrieved ${auth0Response.users.length} users`,
+        users: auth0Response.users,
+        pagination: {
+          page: pageNum,
+          perPage: perPageNum,
+          total: auth0Response.total,
+          hasMore: (pageNum + 1) * perPageNum < auth0Response.total
+        }
+      });
+    } catch (error: any) {
+      // Rollback status
+      if (req.query.organizationId) {
+        try {
+          await mockUpdateUserStatus('workflow', "failed", req.query.organizationId as string);
+        } catch (rollbackError) {
+          console.error("Rollback failed:", rollbackError);
+        }
+      }
+
+      if (error instanceof ApplicationFailure) {
+        res.status(error.nonRetryable ? 400 : 500).json({
+          success: false,
+          error: error.message,
+          type: error.type
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          error: error.message
+        });
+      }
+    }
+  });
+
+  return app;
+};
 
 describe('User Integration Tests', () => {
-  const testUser = {
-    email: 'test@example.com',
-    password: 'SecurePassword123!',
-    name: 'Test User'
-  };
-
-  const userId = new mongoose.Types.ObjectId().toString();
+  let app: express.Application;
 
   beforeEach(() => {
-    // Reset all stubs before each test - DO NOT set default behavior here
-    Object.values(UserMock).forEach((stub: any) => {
-      if (stub.reset) stub.reset();
-    });
-    Object.values(workflowTriggers).forEach((stub: any) => {
-      if (stub.reset) stub.reset();
-    });
+    // Reset all mocks completely
+    mockCreateUserInAuth0.reset();
+    mockSaveAuth0IdToMongoDB.reset();
+    mockUpdateUserInAuth0.reset();
+    mockUpdateUserStatus.reset();
+    mockDeleteUserFromAuth0.reset();
+    mockDeleteUserFromDB.reset();
+    mockListUsersFromAuth0.reset();
+    
+    // Clear all behaviors
+    mockCreateUserInAuth0.resetBehavior();
+    mockSaveAuth0IdToMongoDB.resetBehavior();
+    mockUpdateUserInAuth0.resetBehavior();
+    mockUpdateUserStatus.resetBehavior();
+    mockDeleteUserFromAuth0.resetBehavior();
+    mockDeleteUserFromDB.resetBehavior();
+    mockListUsersFromAuth0.resetBehavior();
+
+    app = createMockApp();
   });
 
   afterEach(() => {
     sinon.restore();
   });
 
-  describe('POST /api/users - Create User', () => {
-    it('should create user successfully', async () => {
-      // Set up successful behavior for this specific test
-      UserMock.create.resolves({
-        _id: new mongoose.Types.ObjectId(),
-        email: testUser.email,
-        name: testUser.name,
-        status: 'provisioning',
-        createdAt: new Date(),
-        updatedAt: new Date()
+  describe('Complete User Lifecycle Integration', () => {
+    it('should handle complete user lifecycle: create → update → list → delete', async () => {
+      const email = 'lifecycle@example.com';
+      const name = 'Lifecycle User';
+      const password = 'SecurePassword123!';
+      const organizationId = 'org123';
+      const auth0Id = 'auth0|lifecycle123';
+
+      // Step 1: Create User
+      mockUpdateUserStatus.resolves();
+      mockCreateUserInAuth0.resolves(auth0Id);
+      mockSaveAuth0IdToMongoDB.resolves();
+
+      const createResponse = await request(app)
+        .post('/api/users')
+        .send({ email, name, password, organizationId });
+
+      expect(createResponse.status).to.equal(201);
+      expect(createResponse.body).to.deep.equal({
+        success: true,
+        auth0Id,
+        message: `User ${email} created successfully`
       });
-      workflowTriggers.triggerCreateUser.resolves('create-user-workflow-123');
 
-      const response = await request(app)
-        .post('/api/users')
-        .send(testUser)
-        .expect(200);
+      // Verify create workflow calls
+      expect(mockUpdateUserStatus.callCount).to.equal(2);
+      expect(mockUpdateUserStatus.getCall(0).calledWith(email, "provisioning", organizationId, name)).to.be.true;
+      expect(mockUpdateUserStatus.getCall(1).calledWith(email, "created", organizationId, name)).to.be.true;
+      expect(mockCreateUserInAuth0.calledWith(email, name, password)).to.be.true;
+      expect(mockSaveAuth0IdToMongoDB.calledWith(email, auth0Id)).to.be.true;
 
-      expect(response.body).to.have.property('message', 'User provisioning started');
-      expect(response.body).to.have.property('workflowId', 'create-user-workflow-123');
-      expect(UserMock.create.calledOnce).to.be.true;
-      expect(workflowTriggers.triggerCreateUser.calledOnce).to.be.true;
-    });
+      // Reset mocks for next step
+      mockUpdateUserStatus.reset();
+      mockUpdateUserInAuth0.reset();
+      mockUpdateUserStatus.resetBehavior();
+      mockUpdateUserInAuth0.resetBehavior();
 
-    it('should return 400 for missing required fields', async () => {
-      const response = await request(app)
-        .post('/api/users')
-        .send({ email: 'test@example.com' }) // Missing password and name
-        .expect(400);
+      // Step 2: Update User
+      const updates = { name: 'Updated Lifecycle User', blocked: false };
+      const updatedFields = ['name', 'blocked'];
 
-      expect(response.body).to.have.property('error', 'All fields are required.');
-      expect(response.body).to.have.property('statusCode', 400);
-    });
+      mockUpdateUserStatus.resolves();
+      mockUpdateUserInAuth0.resolves(updatedFields);
 
-    it('should handle database errors gracefully', async () => {
-      // Set up error behavior for this specific test
-      UserMock.create.rejects(new Error('Database connection failed'));
+      const updateResponse = await request(app)
+        .put(`/api/users/${email}`)
+        .send({ updates, organizationId });
 
-      const response = await request(app)
-        .post('/api/users')
-        .send(testUser)
-        .expect(500);
-
-      expect(response.body).to.have.property('error', 'Failed to start user creation workflow');
-      expect(response.body).to.have.property('statusCode', 500);
-    });
-
-    it('should handle workflow trigger errors gracefully', async () => {
-      // Set up mixed behavior - successful create but failed workflow trigger
-      UserMock.create.resolves({
-        _id: new mongoose.Types.ObjectId(),
-        email: testUser.email,
-        name: testUser.name,
-        status: 'provisioning'
+      expect(updateResponse.status).to.equal(200);
+      expect(updateResponse.body).to.deep.equal({
+        success: true,
+        message: `User ${email} updated successfully`,
+        updatedFields
       });
-      workflowTriggers.triggerCreateUser.rejects(new Error('Temporal workflow failed'));
 
-      const response = await request(app)
+      // Verify update workflow calls
+      expect(mockUpdateUserStatus.callCount).to.equal(2);
+      expect(mockUpdateUserStatus.getCall(0).calledWith(email, "updating", organizationId)).to.be.true;
+      expect(mockUpdateUserStatus.getCall(1).calledWith(email, "active", organizationId)).to.be.true;
+      expect(mockUpdateUserInAuth0.calledWith(email, updates)).to.be.true;
+
+      // Reset mocks for next step
+      mockUpdateUserStatus.reset();
+      mockListUsersFromAuth0.reset();
+      mockUpdateUserStatus.resetBehavior();
+      mockListUsersFromAuth0.resetBehavior();
+
+      // Step 3: List Users (should include our created user)
+      const mockUsers = [
+        { id: auth0Id, email, name: 'Updated Lifecycle User', blocked: false },
+        { id: 'auth0|other', email: 'other@example.com', name: 'Other User' }
+      ];
+      const mockResponse = { users: mockUsers, total: 2 };
+
+      mockUpdateUserStatus.resolves();
+      mockListUsersFromAuth0.resolves(mockResponse);
+
+      const listResponse = await request(app)
+        .get('/api/users')
+        .query({ page: 0, perPage: 50, organizationId });
+
+      expect(listResponse.status).to.equal(200);
+      expect(listResponse.body.success).to.be.true;
+      expect(listResponse.body.users).to.deep.equal(mockUsers);
+      expect(listResponse.body.pagination).to.deep.equal({
+        page: 0,
+        perPage: 50,
+        total: 2,
+        hasMore: false
+      });
+
+      // Verify list workflow calls
+      expect(mockUpdateUserStatus.callCount).to.equal(2);
+      expect(mockUpdateUserStatus.getCall(0).calledWith('workflow', "fetching", organizationId)).to.be.true;
+      expect(mockUpdateUserStatus.getCall(1).calledWith('workflow', "completed", organizationId)).to.be.true;
+      expect(mockListUsersFromAuth0.calledWith(0, 50, undefined)).to.be.true;
+
+      // Reset mocks for next step
+      mockUpdateUserStatus.reset();
+      mockDeleteUserFromAuth0.reset();
+      mockDeleteUserFromDB.reset();
+      mockUpdateUserStatus.resetBehavior();
+      mockDeleteUserFromAuth0.resetBehavior();
+      mockDeleteUserFromDB.resetBehavior();
+
+      // Step 4: Delete User
+      mockUpdateUserStatus.resolves();
+      mockDeleteUserFromAuth0.resolves();
+      mockDeleteUserFromDB.resolves();
+
+      const deleteResponse = await request(app)
+        .delete(`/api/users/${email}`)
+        .query({ organizationId });
+
+      expect(deleteResponse.status).to.equal(200);
+      expect(deleteResponse.body).to.deep.equal({
+        success: true,
+        message: `User ${email} deletion completed`,
+        deletedFrom: ['Auth0', 'MongoDB']
+      });
+
+      // Verify delete workflow calls
+      expect(mockUpdateUserStatus.callCount).to.equal(2);
+      expect(mockUpdateUserStatus.getCall(0).calledWith(email, "deleting", organizationId)).to.be.true;
+      expect(mockUpdateUserStatus.getCall(1).calledWith(email, "deleted", organizationId)).to.be.true;
+      expect(mockDeleteUserFromAuth0.calledWith(email)).to.be.true;
+      expect(mockDeleteUserFromDB.calledWith(email)).to.be.true;
+    });
+
+    it('should handle partial user lifecycle with failures and recovery', async () => {
+      const email = 'partial@example.com';
+      const name = 'Partial User';
+      const password = 'SecurePassword123!';
+      const organizationId = 'org123';
+      const auth0Id = 'auth0|partial123';
+
+      // Step 1: Create User (Success)
+      mockUpdateUserStatus.resolves();
+      mockCreateUserInAuth0.resolves(auth0Id);
+      mockSaveAuth0IdToMongoDB.resolves();
+
+      const createResponse = await request(app)
         .post('/api/users')
-        .send(testUser)
-        .expect(500);
+        .send({ email, name, password, organizationId });
 
-      expect(response.body).to.have.property('error', 'Failed to start user creation workflow');
+      expect(createResponse.status).to.equal(201);
+      expect(createResponse.body.success).to.be.true;
+
+      // Reset mocks for next step
+      mockUpdateUserStatus.reset();
+      mockUpdateUserInAuth0.reset();
+      mockUpdateUserStatus.resetBehavior();
+      mockUpdateUserInAuth0.resetBehavior();
+
+      // Step 2: Update User (Failure)
+      const updates = { name: 'Updated Partial User' };
+      const auth0Error = ApplicationFailure.create({
+        message: 'Auth0 user update failed',
+        type: 'Auth0ClientError',
+        nonRetryable: true
+      });
+
+      mockUpdateUserStatus.onCall(0).resolves(); // updating status
+      mockUpdateUserInAuth0.rejects(auth0Error);
+      mockUpdateUserStatus.onCall(1).resolves(); // failed status
+
+      const updateResponse = await request(app)
+        .put(`/api/users/${email}`)
+        .send({ updates, organizationId });
+
+      expect(updateResponse.status).to.equal(400); // nonRetryable error
+      expect(updateResponse.body).to.deep.equal({
+        success: false,
+        error: 'Auth0 user update failed',
+        type: 'Auth0ClientError'
+      });
+
+      // Verify rollback was attempted
+      expect(mockUpdateUserStatus.callCount).to.equal(2);
+      expect(mockUpdateUserStatus.getCall(1).calledWith(email, "failed", organizationId)).to.be.true;
+
+      // Reset mocks for next step
+      mockUpdateUserStatus.reset();
+      mockListUsersFromAuth0.reset();
+      mockUpdateUserStatus.resetBehavior();
+      mockListUsersFromAuth0.resetBehavior();
+
+      // Step 3: List Users (Success - user still exists)
+      const mockUsers = [
+        { id: auth0Id, email, name, blocked: false } // Original name, not updated
+      ];
+      const mockResponse = { users: mockUsers, total: 1 };
+
+      mockUpdateUserStatus.resolves();
+      mockListUsersFromAuth0.resolves(mockResponse);
+
+      const listResponse = await request(app)
+        .get('/api/users')
+        .query({ page: 0, perPage: 50, organizationId });
+
+      expect(listResponse.status).to.equal(200);
+      expect(listResponse.body.success).to.be.true;
+      expect(listResponse.body.users[0].name).to.equal(name); // Original name
+
+      // Reset mocks for next step
+      mockUpdateUserStatus.reset();
+      mockDeleteUserFromAuth0.reset();
+      mockDeleteUserFromDB.reset();
+      mockUpdateUserStatus.resetBehavior();
+      mockDeleteUserFromAuth0.resetBehavior();
+      mockDeleteUserFromDB.resetBehavior();
+
+      // Step 4: Delete User (Partial success - Auth0 not found, MongoDB success)
+      mockUpdateUserStatus.resolves();
+      mockDeleteUserFromAuth0.rejects(new Error('User not found (404)'));
+      mockDeleteUserFromDB.resolves();
+
+      const deleteResponse = await request(app)
+        .delete(`/api/users/${email}`)
+        .query({ organizationId });
+
+      expect(deleteResponse.status).to.equal(200);
+      expect(deleteResponse.body).to.deep.equal({
+        success: true,
+        message: `User ${email} deletion completed`,
+        deletedFrom: ['MongoDB'] // Only MongoDB deletion succeeded
+      });
     });
   });
 
-  describe('PUT /api/users/:email - Update User', () => {
-    it('should update user successfully', async () => {
-      // Set up successful behavior for this specific test
-      UserMock.findOne.resolves({
-        _id: userId,
-        email: testUser.email,
-        name: 'Existing User',
-        status: 'active'
-      });
-      workflowTriggers.triggerUpdateUser.resolves('update-user-workflow-456');
+  describe('Bulk Operations Integration', () => {
+    it('should handle creating multiple users in sequence', async () => {
+      const users = [
+        { email: 'bulk1@example.com', name: 'Bulk User 1', password: 'Pass1!' },
+        { email: 'bulk2@example.com', name: 'Bulk User 2', password: 'Pass2!' },
+        { email: 'bulk3@example.com', name: 'Bulk User 3', password: 'Pass3!' }
+      ];
+      const organizationId = 'bulk-org';
 
-      const updateData = {
-        name: 'Updated User Name',
-        password: 'NewPassword123!'
+      mockUpdateUserStatus.resolves();
+      mockSaveAuth0IdToMongoDB.resolves();
+
+      for (let i = 0; i < users.length; i++) {
+        const user = users[i];
+        const auth0Id = `auth0|bulk${i + 1}`;
+
+        // Reset create mock for each user
+        mockCreateUserInAuth0.reset();
+        mockCreateUserInAuth0.resetBehavior();
+        mockCreateUserInAuth0.resolves(auth0Id);
+
+        const response = await request(app)
+          .post('/api/users')
+          .send({ ...user, organizationId });
+
+        expect(response.status).to.equal(201);
+        expect(response.body.success).to.be.true;
+        expect(response.body.auth0Id).to.equal(auth0Id);
+        expect(mockCreateUserInAuth0.calledWith(user.email, user.name, user.password)).to.be.true;
+      }
+
+      // Verify all users can be listed
+      mockUpdateUserStatus.reset();
+      mockListUsersFromAuth0.reset();
+      mockUpdateUserStatus.resetBehavior();
+      mockListUsersFromAuth0.resetBehavior();
+
+      const mockUsers = users.map((user, i) => ({
+        id: `auth0|bulk${i + 1}`,
+        email: user.email,
+        name: user.name
+      }));
+      const mockResponse = { users: mockUsers, total: 3 };
+
+      mockUpdateUserStatus.resolves();
+      mockListUsersFromAuth0.resolves(mockResponse);
+
+      const listResponse = await request(app)
+        .get('/api/users')
+        .query({ organizationId });
+
+      expect(listResponse.status).to.equal(200);
+      expect(listResponse.body.users).to.have.length(3);
+      expect(listResponse.body.pagination.total).to.equal(3);
+    });
+
+    it('should handle mixed success/failure in bulk operations', async () => {
+      const users = [
+        { email: 'mixed1@example.com', name: 'Mixed User 1', password: 'Pass1!' },
+        { email: 'mixed2@example.com', name: 'Mixed User 2', password: 'Pass2!' },
+        { email: 'mixed3@example.com', name: 'Mixed User 3', password: 'Pass3!' }
+      ];
+      const organizationId = 'mixed-org';
+
+      mockUpdateUserStatus.resolves();
+      mockSaveAuth0IdToMongoDB.resolves();
+
+      const results = [];
+
+      for (let i = 0; i < users.length; i++) {
+        const user = users[i];
+        const auth0Id = `auth0|mixed${i + 1}`;
+
+        // Reset mocks for each user
+        mockCreateUserInAuth0.reset();
+        mockCreateUserInAuth0.resetBehavior();
+
+        if (i === 1) {
+          // Second user fails
+          mockCreateUserInAuth0.rejects(ApplicationFailure.create({
+            message: 'Auth0 user creation failed',
+            type: 'Auth0ClientError',
+            nonRetryable: true
+          }));
+        } else {
+          mockCreateUserInAuth0.resolves(auth0Id);
+        }
+
+        const response = await request(app)
+          .post('/api/users')
+          .send({ ...user, organizationId });
+
+        results.push({
+          email: user.email,
+          success: response.status === 201,
+          status: response.status
+        });
+      }
+
+      // Verify results
+      expect(results[0].success).to.be.true; // First user succeeded
+      expect(results[1].success).to.be.false; // Second user failed
+      expect(results[1].status).to.equal(400); // nonRetryable error
+      expect(results[2].success).to.be.true; // Third user succeeded
+
+      // Verify only successful users are listed
+      mockUpdateUserStatus.reset();
+      mockListUsersFromAuth0.reset();
+      mockUpdateUserStatus.resetBehavior();
+      mockListUsersFromAuth0.resetBehavior();
+
+      const mockUsers = [
+        { id: 'auth0|mixed1', email: 'mixed1@example.com', name: 'Mixed User 1' },
+        { id: 'auth0|mixed3', email: 'mixed3@example.com', name: 'Mixed User 3' }
+      ];
+      const mockResponse = { users: mockUsers, total: 2 };
+
+      mockUpdateUserStatus.resolves();
+      mockListUsersFromAuth0.resolves(mockResponse);
+
+      const listResponse = await request(app)
+        .get('/api/users')
+        .query({ organizationId });
+
+      expect(listResponse.status).to.equal(200);
+      expect(listResponse.body.users).to.have.length(2); // Only successful users
+    });
+  });
+
+  describe('Search and Pagination Integration', () => {
+    it('should handle search with pagination across multiple requests', async () => {
+      const organizationId = 'search-org';
+
+      // Mock large dataset
+      const allUsers = Array.from({ length: 150 }, (_, i) => ({
+        id: `auth0|user${i + 1}`,
+        email: `user${i + 1}@example.com`,
+        name: `User ${i + 1}`
+      }));
+
+      // Test pagination without search
+      mockUpdateUserStatus.resolves();
+
+      // Page 0
+      const page0Users = allUsers.slice(0, 50);
+      mockListUsersFromAuth0.reset();
+      mockListUsersFromAuth0.resetBehavior();
+      mockListUsersFromAuth0.resolves({ users: page0Users, total: 150 });
+
+      const page0Response = await request(app)
+        .get('/api/users')
+        .query({ page: 0, perPage: 50, organizationId });
+
+      expect(page0Response.status).to.equal(200);
+      expect(page0Response.body.users).to.have.length(50);
+      expect(page0Response.body.pagination).to.deep.equal({
+        page: 0,
+        perPage: 50,
+        total: 150,
+        hasMore: true
+      });
+
+      // Page 1
+      const page1Users = allUsers.slice(50, 100);
+      mockListUsersFromAuth0.reset();
+      mockListUsersFromAuth0.resetBehavior();
+      mockListUsersFromAuth0.resolves({ users: page1Users, total: 150 });
+
+      const page1Response = await request(app)
+        .get('/api/users')
+        .query({ page: 1, perPage: 50, organizationId });
+
+      expect(page1Response.status).to.equal(200);
+      expect(page1Response.body.users).to.have.length(50);
+      expect(page1Response.body.pagination.hasMore).to.be.true;
+
+      // Last page
+      const page2Users = allUsers.slice(100, 150);
+      mockListUsersFromAuth0.reset();
+      mockListUsersFromAuth0.resetBehavior();
+      mockListUsersFromAuth0.resolves({ users: page2Users, total: 150 });
+
+      const page2Response = await request(app)
+        .get('/api/users')
+        .query({ page: 2, perPage: 50, organizationId });
+
+      expect(page2Response.status).to.equal(200);
+      expect(page2Response.body.users).to.have.length(50);
+      expect(page2Response.body.pagination.hasMore).to.be.false;
+
+      // Test search functionality
+      const searchQuery = 'admin';
+      const searchResults = [
+        { id: 'auth0|admin1', email: 'admin1@example.com', name: 'Admin User 1' },
+        { id: 'auth0|admin2', email: 'admin2@example.com', name: 'Admin User 2' }
+      ];
+
+      mockListUsersFromAuth0.reset();
+      mockListUsersFromAuth0.resetBehavior();
+      mockListUsersFromAuth0.resolves({ users: searchResults, total: 2 });
+
+      const searchResponse = await request(app)
+        .get('/api/users')
+        .query({ searchQuery, organizationId });
+
+      expect(searchResponse.status).to.equal(200);
+      expect(searchResponse.body.users).to.have.length(2);
+      expect(searchResponse.body.pagination.total).to.equal(2);
+      expect(mockListUsersFromAuth0.calledWith(0, 50, searchQuery)).to.be.true;
+    });
+  });
+
+  describe('Error Handling and Recovery Integration', () => {
+    it('should handle cascading failures and partial recovery', async () => {
+      const email = 'cascading@example.com';
+      const name = 'Cascading User';
+      const password = 'SecurePassword123!';
+      const organizationId = 'cascade-org';
+
+      // Scenario 1: Create user fails at Auth0 step
+      mockUpdateUserStatus.onCall(0).resolves(); // provisioning status
+      mockCreateUserInAuth0.rejects(ApplicationFailure.create({
+        message: 'Auth0 service unavailable',
+        type: 'Auth0ServiceError',
+        nonRetryable: false
+      }));
+      mockUpdateUserStatus.onCall(1).resolves(); // failed status
+
+      const createResponse = await request(app)
+        .post('/api/users')
+        .send({ email, name, password, organizationId });
+
+      expect(createResponse.status).to.equal(500); // retryable error
+      expect(createResponse.body.success).to.be.false;
+      expect(createResponse.body.type).to.equal('Auth0ServiceError');
+
+      // Verify rollback was attempted
+      expect(mockUpdateUserStatus.callCount).to.equal(2);
+      expect(mockUpdateUserStatus.getCall(1).calledWith(email, "failed", organizationId, name)).to.be.true;
+
+      // Reset mocks for retry scenario
+      mockUpdateUserStatus.reset();
+      mockCreateUserInAuth0.reset();
+      mockSaveAuth0IdToMongoDB.reset();
+      mockUpdateUserStatus.resetBehavior();
+      mockCreateUserInAuth0.resetBehavior();
+      mockSaveAuth0IdToMongoDB.resetBehavior();
+
+      // Scenario 2: Retry create user (success)
+      const auth0Id = 'auth0|cascading123';
+      mockUpdateUserStatus.resolves();
+      mockCreateUserInAuth0.resolves(auth0Id);
+      mockSaveAuth0IdToMongoDB.resolves();
+
+      const retryCreateResponse = await request(app)
+        .post('/api/users')
+        .send({ email, name, password, organizationId });
+
+      expect(retryCreateResponse.status).to.equal(201);
+      expect(retryCreateResponse.body.success).to.be.true;
+
+      // Scenario 3: Update fails, then list shows original state
+      mockUpdateUserStatus.reset();
+      mockUpdateUserInAuth0.reset();
+      mockUpdateUserStatus.resetBehavior();
+      mockUpdateUserInAuth0.resetBehavior();
+
+      const updates = { name: 'Updated Cascading User' };
+      mockUpdateUserStatus.onCall(0).resolves(); // updating status
+      mockUpdateUserInAuth0.rejects(new Error('Network timeout'));
+      mockUpdateUserStatus.onCall(1).resolves(); // failed status
+
+      const updateResponse = await request(app)
+        .put(`/api/users/${email}`)
+        .send({ updates, organizationId });
+
+      expect(updateResponse.status).to.equal(500);
+      expect(updateResponse.body.success).to.be.false;
+
+      // Verify user still has original data
+      mockUpdateUserStatus.reset();
+      mockListUsersFromAuth0.reset();
+      mockUpdateUserStatus.resetBehavior();
+      mockListUsersFromAuth0.resetBehavior();
+
+      const mockUsers = [
+        { id: auth0Id, email, name, blocked: false } // Original name
+      ];
+      const mockResponse = { users: mockUsers, total: 1 };
+
+      mockUpdateUserStatus.resolves();
+      mockListUsersFromAuth0.resolves(mockResponse);
+
+      const listResponse = await request(app)
+        .get('/api/users')
+        .query({ organizationId });
+
+      expect(listResponse.status).to.equal(200);
+      expect(listResponse.body.users[0].name).to.equal(name); // Original name preserved
+    });
+
+    it('should handle concurrent operations with proper isolation', async () => {
+      const organizationId = 'concurrent-org';
+      const users = [
+        { email: 'concurrent1@example.com', name: 'Concurrent User 1', password: 'Pass1!' },
+        { email: 'concurrent2@example.com', name: 'Concurrent User 2', password: 'Pass2!' },
+        { email: 'concurrent3@example.com', name: 'Concurrent User 3', password: 'Pass3!' }
+      ];
+
+      // Setup mocks for concurrent operations
+      mockUpdateUserStatus.resolves();
+      mockSaveAuth0IdToMongoDB.resolves();
+
+      // Simulate concurrent user creation
+      const createPromises = users.map(async (user, index) => {
+        // Reset create mock for each concurrent request
+        const userMockCreateUserInAuth0 = sinon.stub();
+        userMockCreateUserInAuth0.resolves(`auth0|concurrent${index + 1}`);
+
+        // Temporarily replace the global mock
+        const originalMock = mockCreateUserInAuth0;
+        (global as any).mockCreateUserInAuth0 = userMockCreateUserInAuth0;
+
+        try {
+          // Simulate different timing for each request
+          await new Promise(resolve => setTimeout(resolve, Math.random() * 100));
+
+          const response = await request(app)
+            .post('/api/users')
+            .send({ ...user, organizationId });
+
+          return {
+            email: user.email,
+            success: response.status === 201,
+            auth0Id: response.body.auth0Id
+          };
+        } finally {
+          // Restore original mock
+          (global as any).mockCreateUserInAuth0 = originalMock;
+        }
+      });
+
+      const results = await Promise.all(createPromises);
+
+      // Verify all operations succeeded independently
+      results.forEach((result, index) => {
+        expect(result.success).to.be.true;
+        expect(result.auth0Id).to.equal(`auth0|concurrent${index + 1}`);
+      });
+
+      // Verify final state shows all users
+      mockUpdateUserStatus.reset();
+      mockListUsersFromAuth0.reset();
+      mockUpdateUserStatus.resetBehavior();
+      mockListUsersFromAuth0.resetBehavior();
+
+      const mockUsers = users.map((user, i) => ({
+        id: `auth0|concurrent${i + 1}`,
+        email: user.email,
+        name: user.name
+      }));
+      const mockResponse = { users: mockUsers, total: 3 };
+
+      mockUpdateUserStatus.resolves();
+      mockListUsersFromAuth0.resolves(mockResponse);
+
+      const listResponse = await request(app)
+        .get('/api/users')
+        .query({ organizationId });
+
+      expect(listResponse.status).to.equal(200);
+      expect(listResponse.body.users).to.have.length(3);
+    });
+  });
+
+  describe('Edge Cases and Data Validation Integration', () => {
+    it('should handle special characters and international data', async () => {
+      const email = 'tëst+üser@exämple-domain.com';
+      const name = 'José María Ñoño 测试用户 🚀';
+      const password = 'Pássw0rd!@#$%^&*()';
+      const organizationId = 'org-测试_123';
+      const auth0Id = 'auth0|special_123';
+
+      // Create user with special characters
+      mockUpdateUserStatus.resolves();
+      mockCreateUserInAuth0.resolves(auth0Id);
+      mockSaveAuth0IdToMongoDB.resolves();
+
+      const createResponse = await request(app)
+        .post('/api/users')
+        .send({ email, name, password, organizationId });
+
+      expect(createResponse.status).to.equal(201);
+      expect(createResponse.body.success).to.be.true;
+
+      // Update with more special characters
+      mockUpdateUserStatus.reset();
+      mockUpdateUserInAuth0.reset();
+      mockUpdateUserStatus.resetBehavior();
+      mockUpdateUserInAuth0.resetBehavior();
+
+      const updates = { 
+        name: '新しい名前 José María Ñoño 🎉',
+        password: 'Nëw-Pássw0rd!@#$%^&*()'
       };
+      const updatedFields = ['name', 'password'];
 
-      const response = await request(app)
-        .put(`/api/users/${testUser.email}`)
-        .send(updateData)
-        .expect(200);
+      mockUpdateUserStatus.resolves();
+      mockUpdateUserInAuth0.resolves(updatedFields);
 
-      expect(response.body).to.have.property('message', 'User update started');
-      expect(response.body).to.have.property('workflowId', 'update-user-workflow-456');
-      expect(UserMock.findOne.calledWith({ email: testUser.email })).to.be.true;
-      expect(workflowTriggers.triggerUpdateUser.calledOnce).to.be.true;
+      const updateResponse = await request(app)
+        .put(`/api/users/${encodeURIComponent(email)}`)
+        .send({ updates, organizationId });
+
+      expect(updateResponse.status).to.equal(200);
+      expect(updateResponse.body.success).to.be.true;
+
+      // Search with special characters
+      mockUpdateUserStatus.reset();
+      mockListUsersFromAuth0.reset();
+      mockUpdateUserStatus.resetBehavior();
+      mockListUsersFromAuth0.resetBehavior();
+
+      const searchQuery = 'josé maría 测试';
+      const mockUsers = [
+        { id: auth0Id, email, name: updates.name }
+      ];
+      const mockResponse = { users: mockUsers, total: 1 };
+
+      mockUpdateUserStatus.resolves();
+      mockListUsersFromAuth0.resolves(mockResponse);
+
+      const searchResponse = await request(app)
+        .get('/api/users')
+        .query({ searchQuery: encodeURIComponent(searchQuery), organizationId });
+
+      expect(searchResponse.status).to.equal(200);
+      expect(searchResponse.body.users[0].name).to.equal(updates.name);
+      expect(mockListUsersFromAuth0.calledWith(0, 50, searchQuery)).to.be.true;
+
+      // Delete user with special characters
+      mockUpdateUserStatus.reset();
+      mockDeleteUserFromAuth0.reset();
+      mockDeleteUserFromDB.reset();
+      mockUpdateUserStatus.resetBehavior();
+      mockDeleteUserFromAuth0.resetBehavior();
+      mockDeleteUserFromDB.resetBehavior();
+
+      mockUpdateUserStatus.resolves();
+      mockDeleteUserFromAuth0.resolves();
+      mockDeleteUserFromDB.resolves();
+
+      const deleteResponse = await request(app)
+        .delete(`/api/users/${encodeURIComponent(email)}`)
+        .query({ organizationId: encodeURIComponent(organizationId) });
+
+      expect(deleteResponse.status).to.equal(200);
+      expect(deleteResponse.body.success).to.be.true;
     });
 
-    it('should return 404 for missing email', async () => {
-      const response = await request(app)
-        .put('/api/users/undefined')
-        .send({ name: 'Updated Name' })
-        .expect(404);
+    it('should handle empty and null data gracefully', async () => {
+      // Test empty list response
+      mockUpdateUserStatus.resolves();
+      mockListUsersFromAuth0.resolves({ users: [], total: 0 });
 
-      expect(response.body).to.have.property('error', 'Email is required');
-      expect(response.body).to.have.property('statusCode', 404);
-    });
+      const emptyListResponse = await request(app)
+        .get('/api/users')
+        .query({ organizationId: 'empty-org' });
 
-    it('should return 404 when user not found', async () => {
-      // Set up null return for this specific test
-      UserMock.findOne.resolves(null);
+      expect(emptyListResponse.status).to.equal(200);
+      expect(emptyListResponse.body.users).to.have.length(0);
+      expect(emptyListResponse.body.pagination.total).to.equal(0);
 
-      const response = await request(app)
-        .put('/api/users/nonexistent@example.com')
-        .send({ name: 'Updated Name' })
-        .expect(404);
+      // Test delete non-existent user
+      mockUpdateUserStatus.reset();
+      mockDeleteUserFromAuth0.reset();
+      mockDeleteUserFromDB.reset();
+      mockUpdateUserStatus.resetBehavior();
+      mockDeleteUserFromAuth0.resetBehavior();
+      mockDeleteUserFromDB.resetBehavior();
 
-      expect(response.body).to.have.property('error', 'User not found');
-    });
+      mockUpdateUserStatus.resolves();
+      mockDeleteUserFromAuth0.rejects(new Error('User not found (404)'));
+      mockDeleteUserFromDB.rejects(new Error('No user found with email'));
 
-    it('should handle database errors during update', async () => {
-      // Set up error behavior for this specific test
-      UserMock.findOne.rejects(new Error('Database error'));
-
-      const response = await request(app)
-        .put(`/api/users/${testUser.email}`)
-        .send({ name: 'Updated Name' })
-        .expect(500);
-
-      expect(response.body).to.have.property('error', 'Failed to start user update workflow');
-    });
-  });
-
-  describe('DELETE /api/users/:email - Delete User', () => {
-    it('should delete user successfully', async () => {
-      // Set up successful behavior for this specific test
-      UserMock.findOne.resolves({
-        _id: userId,
-        email: testUser.email,
-        name: 'Existing User',
-        status: 'active'
-      });
-      workflowTriggers.triggerDeleteUser.resolves('delete-user-workflow-789');
-
-      const response = await request(app)
-        .delete(`/api/users/${testUser.email}`)
-        .expect(200);
-
-      expect(response.body).to.have.property('message', 'User deletion started');
-      expect(response.body).to.have.property('workflowId', 'delete-user-workflow-789');
-      expect(UserMock.findOne.calledWith({ email: testUser.email })).to.be.true;
-      expect(workflowTriggers.triggerDeleteUser.calledOnce).to.be.true;
-    });
-
-    it('should return 400 for missing email', async () => {
-      const response = await request(app)
-        .delete('/api/users/undefined')
-        .expect(400);
-
-      expect(response.body).to.have.property('error', 'Email is required');
-      expect(response.body).to.have.property('statusCode', 400);
-    });
-
-    it('should return 404 when user not found', async () => {
-      // Set up null return for this specific test
-      UserMock.findOne.resolves(null);
-
-      const response = await request(app)
+      const deleteNonExistentResponse = await request(app)
         .delete('/api/users/nonexistent@example.com')
-        .expect(404);
+        .query({ organizationId: 'empty-org' });
 
-      expect(response.body).to.have.property('error', 'User not found');
-    });
+      expect(deleteNonExistentResponse.status).to.equal(200);
+      expect(deleteNonExistentResponse.body.deletedFrom).to.have.length(0);
 
-    it('should handle database errors during deletion', async () => {
-      // Set up error behavior for this specific test
-      UserMock.findOne.rejects(new Error('Database error'));
+      // Test update with empty updates
+      mockUpdateUserStatus.reset();
+      mockUpdateUserInAuth0.reset();
+      mockUpdateUserStatus.resetBehavior();
+      mockUpdateUserInAuth0.resetBehavior();
 
-      const response = await request(app)
-        .delete(`/api/users/${testUser.email}`)
-        .expect(500);
+      mockUpdateUserStatus.resolves();
+      mockUpdateUserInAuth0.resolves([]);
 
-      expect(response.body).to.have.property('error', 'Failed to start user deletion workflow');
-    });
-  });
+      const emptyUpdateResponse = await request(app)
+        .put('/api/users/test@example.com')
+        .send({ updates: {}, organizationId: 'empty-org' });
 
-  describe('GET /api/users - List Users', () => {
-    it('should list users successfully', async () => {
-      // Set up successful behavior for this specific test
-      workflowTriggers.triggerListUsers.resolves([
-        { user_id: 'auth0|123', name: 'Test User 1', email: 'user1@example.com', created_at: '2023-01-01' },
-        { user_id: 'auth0|456', name: 'Test User 2', email: 'user2@example.com', created_at: '2023-01-02' }
-      ]);
-
-      const response = await request(app)
-        .get('/api/users')
-        .expect(200);
-
-      expect(response.body).to.have.property('users');
-      expect(response.body.users).to.be.an('array');
-      expect(response.body.users).to.have.length(2);
-      expect(response.body).to.have.property('count', 2);
-      expect(workflowTriggers.triggerListUsers.calledOnce).to.be.true;
-    });
-
-    it('should handle empty user list', async () => {
-      // Set up empty array return for this specific test
-      workflowTriggers.triggerListUsers.resolves([]);
-
-      const response = await request(app)
-        .get('/api/users')
-        .expect(200);
-
-      expect(response.body.users).to.be.an('array');
-      expect(response.body.users).to.have.length(0);
-      expect(response.body.count).to.equal(0);
-    });
-
-    it('should handle workflow errors during listing', async () => {
-      // Set up error behavior for this specific test
-      workflowTriggers.triggerListUsers.rejects(new Error('Workflow failed'));
-
-      const response = await request(app)
-        .get('/api/users')
-        .expect(500);
-
-      expect(response.body).to.have.property('error', 'Failed to list users');
+      expect(emptyUpdateResponse.status).to.equal(200);
+      expect(emptyUpdateResponse.body.updatedFields).to.have.length(0);
     });
   });
 });
