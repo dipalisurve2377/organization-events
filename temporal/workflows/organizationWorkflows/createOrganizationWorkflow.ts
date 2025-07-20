@@ -29,6 +29,7 @@ const {
   saveAuth0IdToMongoDB,
   sendNotificationEmail,
   updateOrganizationStatus,
+  updateOrganizationInDB,
 } = proxyActivities<typeof activities>({
   startToCloseTimeout: "5 seconds",
   retry: {
@@ -40,6 +41,8 @@ const {
 });
 
 let shouldTerminate = false;
+let shouldCancel = false;
+let updatedFields: Partial<CreateOrganizationInput> | null = null;
 
 export async function createOrganizationWorkflow(
   input: CreateOrganizationInput
@@ -51,16 +54,33 @@ export async function createOrganizationWorkflow(
   });
 
   // handler for the cancel workflow
-  let shouldCancel = false;
 
   setHandler(cancelWorkflowSignal, () => {
     console.log("Cancel signal received. Workflow will exit.");
     shouldCancel = true;
   });
 
-  const { orgId, name, identifier, createdByEmail } = input;
+  // handler for update organization details
+  setHandler(
+    updateOrgPayloadSignal,
+    (fields: Partial<CreateOrganizationInput>) => {
+      console.log("Update signal received:", fields);
+      updatedFields = fields;
+    }
+  );
+
+  let { orgId, name, identifier, createdByEmail } = input;
 
   try {
+    // Check if we have updated fields and apply them
+    if (updatedFields) {
+      console.log("Applying updated fields:", updatedFields);
+      name = updatedFields.name || name;
+      identifier = updatedFields.identifier || identifier;
+      createdByEmail = updatedFields.createdByEmail || createdByEmail;
+      updatedFields = null; // Reset after applying
+    }
+
     const auth0Id = await createOrganizationInAuth0(
       name,
       identifier,
@@ -74,19 +94,24 @@ export async function createOrganizationWorkflow(
 
     await sendNotificationEmail(createdByEmail, name);
 
-    // Check for termination in loop
+    // Check for termination and updates in loop
     for (let i = 0; i < 60; i++) {
       if (shouldTerminate) {
         console.log("Workflow terminated early via signal.");
         return;
       }
-      await sleep("1s");
-    }
-
-    for (let i = 0; i < 60; i++) {
       if (shouldCancel) {
         console.log("Workflow canceled by signal.");
         return;
+      }
+      if (updatedFields) {
+        console.log("Applying updated fields in loop:", updatedFields);
+        const fields = updatedFields as Partial<CreateOrganizationInput>;
+        if (fields.name) name = fields.name;
+        if (fields.identifier) identifier = fields.identifier;
+        if (fields.createdByEmail) createdByEmail = fields.createdByEmail;
+        await updateOrganizationInDB(orgId, fields);
+        updatedFields = null; // Reset after applying
       }
       await sleep("1s");
     }

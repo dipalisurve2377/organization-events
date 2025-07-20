@@ -372,6 +372,32 @@ export const updateOrganizationInAuth0 = async (
   }
 };
 
+export const updateOrganizationInDB = async (
+  orgId: string,
+  updates: Partial<{ name: string; identifier: string; createdByEmail: string }>
+): Promise<void> => {
+  await connectDB();
+  try {
+    const result = await Organization.findByIdAndUpdate(orgId, updates, {
+      new: true,
+    });
+    if (!result) {
+      throw ApplicationFailure.create({
+        message: `Organization not found with the orgId: ${orgId}`,
+        type: "MongoUpdateError",
+        nonRetryable: true,
+      });
+    }
+    console.log(`Updated organization in MongoDB: ${orgId} with`, updates);
+  } catch (error: any) {
+    throw ApplicationFailure.create({
+      message: `Failed to update organization in MongoDB for orgId ${orgId}. ${error.message}`,
+      type: "MongoUpdateFailure",
+      nonRetryable: false,
+    });
+  }
+};
+
 export const getOrganizationNameById = async (
   orgId: string
 ): Promise<string | null> => {

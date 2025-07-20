@@ -146,9 +146,11 @@ export const listOrganizationController = async (req, res) => {
 // controller to trigger signal
 
 export const sendUpdateSignalController = async (req, res) => {
-  const { workflowId, updatedFields } = req.body;
+  const workflowId = req.params.id;
+  const { updatedFields } = req.body;
 
   if (!workflowId || !updatedFields) {
+    console.log("workflowId and updatedFields are required");
     return res
       .status(400)
       .json({ error: "workflowId and updatedFields are required" });

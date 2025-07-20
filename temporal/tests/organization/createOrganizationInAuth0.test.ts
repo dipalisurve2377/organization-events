@@ -31,7 +31,7 @@ describe("createOrganizationInAuth0", () => {
     // Set up environment variables for testing
     process.env.AUTH0_ORG_DOMAIN = "test-domain.auth0.com";
 
-    // Create the function to test inline to avoid import issues
+    // Created the function to test inline to avoid import issues
     createOrganizationInAuth0 = async (
       name: string,
       identifier: string,
