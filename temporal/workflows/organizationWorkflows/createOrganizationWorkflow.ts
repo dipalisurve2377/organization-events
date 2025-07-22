@@ -3,6 +3,9 @@ import type * as activities from "../../activities/organizationActivities.ts";
 import { sleep } from "@temporalio/workflow";
 import { ApplicationFailure } from "@temporalio/workflow";
 import { defineSignal, setHandler } from "@temporalio/workflow";
+import { sendNotificationEmailWorkflow } from "./sendNotificationEmailWorkflow";
+import type { SendNotificationEmailInput } from "./sendNotificationEmailWorkflow";
+import { startChild } from "@temporalio/workflow";
 
 // defining signal for the update workflow payload
 export const updateOrgPayloadSignal =
@@ -92,7 +95,14 @@ export async function createOrganizationWorkflow(
     await sleep("20 seconds");
     await updateOrganizationStatus(orgId, "success");
 
-    await sendNotificationEmail(createdByEmail, name);
+    // Use child workflow for sending notification email
+    await startChild(sendNotificationEmailWorkflow, {
+      args: [{
+        to: createdByEmail,
+        name,
+        action: "created"
+      } satisfies SendNotificationEmailInput],
+    }).result();
 
     // Check for termination and updates in loop
     for (let i = 0; i < 60; i++) {
