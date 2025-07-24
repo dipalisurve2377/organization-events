@@ -1,8 +1,10 @@
-import { proxyActivities } from "@temporalio/workflow";
-import type * as activities from "../../activities/organizationActivities.ts";
+import { proxyActivities, startChild } from "@temporalio/workflow";
+import type * as activities from "../../activities/organizationActivities.js";
 import { sleep } from "@temporalio/workflow";
 import { ApplicationFailure } from "@temporalio/workflow";
 import { defineSignal, setHandler } from "@temporalio/workflow";
+import { sendNotificationEmailWorkflow } from "./sendNotificationEmailWorkflow";
+import type { sendNotificationEmailInput } from "./sendNotificationEmailWorkflow";
 
 // defining signal for the update workflow payload
 export const updateOrgPayloadSignal =
@@ -92,7 +94,21 @@ export async function createOrganizationWorkflow(
     await sleep("20 seconds");
     await updateOrganizationStatus(orgId, "success");
 
-    await sendNotificationEmail(createdByEmail, name);
+    // await sendNotificationEmail(createdByEmail, name);
+
+    // child workflow
+
+    let child = await startChild(sendNotificationEmailWorkflow, {
+      args: [
+        {
+          to: createdByEmail,
+          name,
+          action: "created",
+        } satisfies sendNotificationEmailInput,
+      ],
+    });
+
+    await child.result();
 
     // Check for termination and updates in loop
     for (let i = 0; i < 60; i++) {

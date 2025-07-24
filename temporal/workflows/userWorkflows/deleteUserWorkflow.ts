@@ -1,6 +1,6 @@
 import { proxyActivities } from "@temporalio/workflow";
 
-import type * as activities from "../../activities/userActivities.ts";
+import type * as activities from "../../activities/userActivities.js";
 
 const { deleteUserFromAuth0, deleteUserFromDB, updateUserStatus } =
   proxyActivities<typeof activities>({

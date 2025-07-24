@@ -1,16 +1,16 @@
-import { getTemporalClient } from "../../../temporal/client";
+import { getTemporalClient } from "../../client";
 
-import {
-  DeleteOrganizationInput,
-  deleteOrganizationWorkflow,
-} from "../../../temporal/workflows/organizationWorkflows/deleteOrganizationWorkflow";
-
+export interface DeleteOrganizationInput {
+  orgId: string;
+  createdByEmail: string;
+  name?: string;
+}
 export const triggerDeleteOrganization = async (
   input: DeleteOrganizationInput
 ) => {
   const client = await getTemporalClient();
 
-  const handle = await client.start(deleteOrganizationWorkflow, {
+  const handle = await client.start("deleteOrganizationWorkflow", {
     taskQueue: "organization-task-queue",
     workflowId: `delete-org-${input.orgId}`,
     args: [input],

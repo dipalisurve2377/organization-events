@@ -1,0 +1,123 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: backend
+    ports:
+      - "7001:7000"
+    environment:
+      - NODE_ENV=production
+      - PORT=7000
+      - MONGO_URI=mongodb+srv://dipali:userorg2000@cluster0.as6jcdi.mongodb.net/user-org-db
+      - EMAIL_USER=dipalim680@gmail.com
+      - EMAIL_PASS=shni mrvx yumy xnmc
+      - AUTH0_ORG_DOMAIN=dev-kfmfhnq5hivv164x.us.auth0.com
+      - AUTH0_ORG_CLIENT_ID=s3adOrmoxssL54xZNRLEq0QXlJjieL3D
+      - AUTH0_ORG_CLIENT_SECRET=-aNdTat3e-xCgNaNPYsoo0jn1gcvf1lX4Py6zDr4JIZEkfI3dnVFOSywusK5_sok
+      - AUTH0_ORG_AUDIENCE=https://dev-kfmfhnq5hivv164x.us.auth0.com/api/v2/
+      - AUTH0_USER_DOMAIN=dev-kfmfhnq5hivv164x.us.auth0.com
+      - AUTH0_USER_CLIENT_ID=wznMSxY4b83LsuWuZIbQ4OO0S12T60ec
+      - AUTH0_USER_CLIENT_SECRET=MLyIPOfDZm-BZ0EsSaMr5Ziop4oZxJ1GMoOZ2oNEAfRE7Ou0_wkzlG4MLbvnatZ1
+      - AUTH0_USER_AUDIENCE=https://dev-kfmfhnq5hivv164x.us.auth0.com/api/v2/
+      - TEMPORAL_ADDRESS=temporal:7233
+    depends_on:
+      - temporal
+      - postgresql
+    volumes:
+      - ./backend:/app/backend
+
+  organization-worker:
+    build:
+      context: ./temporal
+      dockerfile: workers/Dockerfile
+    container_name: organization-worker
+    # command: npx ts-node /app/workers/organizationWorker.ts
+    command: node --loader ts-node/esm /app/workers/organizationWorker.ts
+    environment:
+      - NODE_ENV=production
+      - MONGO_URI=mongodb+srv://dipali:userorg2000@cluster0.as6jcdi.mongodb.net/user-org-db
+      - EMAIL_USER=dipalim680@gmail.com
+      - EMAIL_PASS=shni mrvx yumy xnmc
+      - AUTH0_ORG_DOMAIN=dev-kfmfhnq5hivv164x.us.auth0.com
+      - AUTH0_ORG_CLIENT_ID=s3adOrmoxssL54xZNRLEq0QXlJjieL3D
+      - AUTH0_ORG_CLIENT_SECRET=-aNdTat3e-xCgNaNPYsoo0jn1gcvf1lX4Py6zDr4JIZEkfI3dnVFOSywusK5_sok
+      - AUTH0_ORG_AUDIENCE=https://dev-kfmfhnq5hivv164x.us.auth0.com/api/v2/
+      - TEMPORAL_ADDRESS=temporal:7233
+    depends_on:
+      - temporal
+      - postgresql
+    volumes:
+      - ./temporal:/app/temporal
+
+  user-worker:
+    build:
+      context: ./temporal
+      dockerfile: workers/Dockerfile
+    container_name: user-worker
+    # command: npx ts-node /app/workers/userWorker.ts
+    command: node --loader ts-node/esm /app/workers/userWorker.ts
+    environment:
+      - NODE_ENV=production
+      - MONGO_URI=mongodb+srv://dipali:userorg2000@cluster0.as6jcdi.mongodb.net/user-org-db
+      - AUTH0_USER_DOMAIN=dev-kfmfhnq5hivv164x.us.auth0.com
+      - AUTH0_USER_CLIENT_ID=wznMSxY4b83LsuWuZIbQ4OO0S12T60ec
+      - AUTH0_USER_CLIENT_SECRET=MLyIPOfDZm-BZ0EsSaMr5Ziop4oZxJ1GMoOZ2oNEAfRE7Ou0_wkzlG4MLbvnatZ1
+      - AUTH0_USER_AUDIENCE=https://dev-kfmfhnq5hivv164x.us.auth0.com/api/v2/
+      - TEMPORAL_ADDRESS=temporal:7233
+    depends_on:
+      - temporal
+      - postgresql
+    volumes:
+      - ./temporal:/app/temporal
+
+  postgresql:
+    container_name: temporal-postgresql-v2
+    image: postgres:13
+    environment:
+      - POSTGRES_PASSWORD=temporal
+      - POSTGRES_USER=temporal
+
+  temporal:
+    container_name: temporal-v2
+    image: temporalio/auto-setup:1.21.5
+    depends_on:
+      - postgresql
+    environment:
+      - DB=postgresql
+      - DB_PORT=5432
+      - POSTGRES_USER=temporal
+      - POSTGRES_PWD=temporal
+      - POSTGRES_SEEDS=postgresql
+      - DYNAMIC_CONFIG_FILE_PATH=/etc/temporal/config/dynamicconfig/development-sql.yaml
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_CLI_ADDRESS=temporal:7233
+    ports:
+      - 8233:7233
+    volumes:
+      - ./dynamicconfig:/etc/temporal/config/dynamicconfig
+
+  temporal-admin-tools:
+    container_name: temporal-admin-tools-v2
+    image: temporalio/admin-tools:1.21.5
+    depends_on:
+      - temporal
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_CLI_ADDRESS=temporal:7233
+    stdin_open: true
+    tty: true
+
+  temporal-ui:
+    container_name: temporal-ui-v2
+    image: temporalio/ui:2.15.0
+    depends_on:
+      - temporal
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_CORS_ORIGINS=http://localhost:7000
+    ports:
+      - 8080:8080
+
+volumes:
+  temporal-volume:

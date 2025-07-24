@@ -1,15 +1,18 @@
-import { getTemporalClient } from "../../../temporal/client";
-import {
-  updateOrganizationWorkflow,
-  UpdateOrganizationInput,
-} from "../../../temporal/workflows/organizationWorkflows/updateOrganizationWorkflow";
+import { getTemporalClient } from "../../client";
+
+export interface UpdateOrganizationInput {
+  orgId: string;
+  name?: string;
+  identifier?: string;
+  createdByEmail: string;
+}
 
 export const triggerUpdateOrganization = async (
   input: UpdateOrganizationInput
 ) => {
   const client = await getTemporalClient();
 
-  const handle = await client.start(updateOrganizationWorkflow, {
+  const handle = await client.start("updateOrganizationWorkflow", {
     taskQueue: "organization-task-queue",
     workflowId: `update-org-${input.orgId}`,
     args: [input],

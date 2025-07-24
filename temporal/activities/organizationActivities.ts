@@ -1,6 +1,6 @@
 import mongoose, { Error } from "mongoose";
 import nodemailer from "nodemailer";
-import { getAuth0Token } from "../services/org_auth0Service";
+import { getAuth0Token } from "../services/org_auth0Service.js";
 import dotenv from "dotenv";
 import axios, { AxiosError } from "axios";
 

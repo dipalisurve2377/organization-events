@@ -1,6 +1,6 @@
 import { proxyActivities } from "@temporalio/workflow";
 
-import type * as activities from "../../activities/organizationActivities.ts";
+import type * as activities from "../../activities/organizationActivities.js";
 import { ApplicationFailure } from "@temporalio/workflow";
 
 export interface UpdateOrganizationInput {

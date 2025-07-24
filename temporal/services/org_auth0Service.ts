@@ -18,7 +18,10 @@ import { dirname } from "path";
 // });
 
 // Use CommonJS __dirname instead of ES modules import.meta.url
-const __dirname = path.dirname(__filename);
+// const __dirname = path.dirname(__filename);
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 dotenv.config({
   path: path.resolve(__dirname, "../.env"),

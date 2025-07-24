@@ -1,5 +1,4 @@
-import { getTemporalClient } from "../../../temporal/client";
-import { updateOrgPayloadSignal } from "../../../temporal/workflows/organizationWorkflows/createOrganizationWorkflow";
+import { getTemporalClient } from "../../client";
 
 interface UpdatePayloadInput {
   workflowId: string;
@@ -20,7 +19,7 @@ export const sendUpdateSignalToOrgWorkflow = async ({
 
   console.log(" Getting handle for workflowId:", workflowId);
 
-  await handle.signal(updateOrgPayloadSignal, updatedFields);
+  await handle.signal("updateOrgPayloadSignal", updatedFields);
 
   console.log(`Signal sent to ${workflowId} with:`, updatedFields);
 };

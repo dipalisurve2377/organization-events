@@ -1,10 +1,9 @@
-import { getTemporalClient } from "../../../temporal/client";
-import { listOrganizationWorkflow } from "../../../temporal/workflows/organizationWorkflows/listOrganizationsWorkflow";
+import { getTemporalClient } from "../../client";
 
 export const triggerListOrganizations = async () => {
   const client = await getTemporalClient();
 
-  const handle = await client.start(listOrganizationWorkflow, {
+  const handle = await client.start("listOrganizationWorkflow", {
     taskQueue: "organization-task-queue",
     workflowId: `list-organizations-${Date.now()}`,
     args: [],

@@ -1,0 +1,50 @@
+src/
+  api/
+    auth.ts
+    organization.ts
+    user.ts
+  auth/
+    AuthProvider.tsx
+    useAuth.ts
+  components/
+    Navbar/
+      Navbar.tsx
+      Navbar.module.css
+    Sidebar/
+      Sidebar.tsx
+      Sidebar.module.css
+    Table/
+      Table.tsx
+      Table.module.css
+    User/
+      UserForm.tsx
+      UserDetail.tsx
+      UserDelete.tsx
+      User.module.css
+    Organization/
+      OrgForm.tsx
+      OrgListTable.tsx
+      Organization.module.css
+  pages/
+    Dashboard/
+      Dashboard.tsx
+    Signup/
+      Signup.tsx
+    User/
+      UserDetail.tsx
+      UserUpdate.tsx
+      UserDelete.tsx
+    Organization/
+      OrgCreate.tsx
+      OrgList.tsx
+  routes/
+    AppRoutes.tsx
+  styles/
+    globals.css
+  tests/
+    (unit/integration tests)
+  App.tsx
+  main.tsx
+public/
+package.json
+tsconfig.json 

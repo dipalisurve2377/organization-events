@@ -1,14 +1,14 @@
-import { getTemporalClient } from "../../../temporal/client";
+import { getTemporalClient } from "../../client";
 
-import {
-  deleteUserWorkflow,
-  DeleteUserInput,
-} from "../../../temporal/workflows/userWorkflows/deleteUserWorkflow";
+export interface DeleteUserInput {
+  email: string;
+  userId: string;
+}
 
 export const triggerDeleteUser = async (input: DeleteUserInput) => {
   const client = await getTemporalClient();
 
-  const handle = await client.start(deleteUserWorkflow, {
+  const handle = await client.start("deleteUserWorkflow", {
     taskQueue: "user-management-queue",
     workflowId: `delete-user-${input.email}`,
     args: [input],

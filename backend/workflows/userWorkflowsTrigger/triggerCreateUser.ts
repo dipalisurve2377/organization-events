@@ -1,13 +1,15 @@
-import { getTemporalClient } from "../../../temporal/client";
-import {
-  CreateUserInput,
-  createUserWorkflow,
-} from "../../../temporal/workflows/userWorkflows/createUserWorkflow";
+import { getTemporalClient } from "../../client";
+
+export interface CreateUserInput {
+  email: string;
+  password: string;
+  name: string;
+}
 
 export const triggerCreateUser = async (input: CreateUserInput) => {
   const client = await getTemporalClient();
 
-  const handle = await client.start(createUserWorkflow, {
+  const handle = await client.start("createUserWorkflow", {
     taskQueue: "user-management-queue",
     workflowId: `create-user-${input.email}`,
     args: [input],

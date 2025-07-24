@@ -1,5 +1,4 @@
-import { getTemporalClient } from "../../../temporal/client";
-import { terminateWorkflowSignal } from "../../../temporal/workflows/organizationWorkflows/createOrganizationWorkflow";
+import { getTemporalClient } from "../../client";
 
 interface TerminateSignalInput {
   workflowId: string;
@@ -14,7 +13,7 @@ export const sendTerminateSignalToOrgWorkflow = async ({
 
   console.log("Sending terminate signal to workflowId: ", workflowId);
 
-  await handle.signal(terminateWorkflowSignal);
+  await handle.signal("terminateWorkflowSignal");
 
   await handle.terminate("Terminated by user request");
 

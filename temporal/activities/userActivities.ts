@@ -1,7 +1,7 @@
 import axios from "axios";
 import mongoose, { connection } from "mongoose";
 import dotenv from "dotenv";
-import { getAuth0Token } from "../services/user_auth0Service";
+import { getAuth0Token } from "../services/user_auth0Service.js";
 import { ApplicationFailure } from "@temporalio/client";
 
 dotenv.config();

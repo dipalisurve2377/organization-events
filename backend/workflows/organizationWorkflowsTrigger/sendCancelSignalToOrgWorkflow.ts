@@ -1,6 +1,4 @@
-import { getTemporalClient } from "../../../temporal/client";
-
-import { cancelWorkflowSignal } from "../../../temporal/workflows/organizationWorkflows/createOrganizationWorkflow";
+import { getTemporalClient } from "../../client";
 
 interface CancelSignalInput {
   workflowId: string;
@@ -15,7 +13,7 @@ export const sendCancelSignalToOrgWorkflow = async ({
 
   console.log("Sending cancel signal to workflowId: ", workflowId);
 
-  handle.signal(cancelWorkflowSignal);
+  handle.signal("cancelWorkflowSignal");
 
   await handle.cancel();
 

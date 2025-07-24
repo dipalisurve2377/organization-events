@@ -1,17 +1,22 @@
-import { Worker } from "@temporalio/worker";
-import * as activities from "../activities/organizationActivities";
+import { Worker, NativeConnection } from "@temporalio/worker";
+import * as activities from "../activities/organizationActivities.js";
+import { dirname, resolve } from "path";
+import { fileURLToPath } from "url";
 
-import * as workflows from "../workflows/organizationWorkflows";
+const connection = await NativeConnection.connect({ address: "temporal:7233" });
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 async function run() {
   const worker = await Worker.create({
-    workflowsPath: require.resolve("../workflows/organizationWorkflows"),
+    workflowsPath: resolve(__dirname, "../workflows/organizationWorkflows"),
     activities,
     taskQueue: "organization-task-queue",
+    connection,
   });
   await worker.run();
 }
 
 run().catch((err) => {
   console.error("Worker failed:", err);
+  process.exit(1);
 });

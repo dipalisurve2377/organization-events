@@ -11,5 +11,5 @@
     "skipLibCheck": true,
     "types": ["mocha", "chai", "sinon"]
   },
-  "include": ["temporal", "tests"]
+  "include": ["temporal", "tests", "backend/client.ts"]
 }
