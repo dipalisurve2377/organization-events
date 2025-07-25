@@ -1,6 +1,5 @@
 {
-  "require": ["ts-node/register", "ts-node/register/transpile-only"],
   "extension": ["ts"],
-  "recursive": true,
+  "require": [],
   "spec": "tests/**/*.test.ts"
 }

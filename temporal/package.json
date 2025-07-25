@@ -2,7 +2,7 @@
   "name": "temporal",
   "version": "1.0.0",
   "main": "index.js",
-  "type": "module",
+  "type": "commonjs",
   "scripts": {
     "test": "mocha --exit --require ts-node/register --extension ts \"tests/**/*.test.ts\"",
     "dev:worker": "node --loader ts-node/esm worker.ts"
@@ -26,6 +26,7 @@
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.3",
     "@types/mocha": "^10.0.10",
+    "@types/mongoose": "^5.11.96",
     "@types/node": "^24.0.10",
     "@types/nodemailer": "^6.4.17",
     "@types/sinon": "^17.0.3",
