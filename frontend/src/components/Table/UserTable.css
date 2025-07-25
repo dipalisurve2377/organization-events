@@ -1,0 +1,130 @@
+.user-table-container {
+  background: #fff;
+  border-radius: 25px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  padding: 32px 24px;
+  width: 100%;
+  max-width: 1110px;
+  margin: 40px auto;
+}
+
+.user-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 16px;
+  font-family: inherit;
+}
+
+.user-table th {
+  color: #718dc0;
+  font-weight: 600;
+  font-size: 16px;
+  text-align: left;
+  padding: 12px 16px;
+  background: transparent;
+}
+
+.user-table td {
+  background: #fff;
+  font-size: 15px;
+  color: #232323;
+  padding: 12px 16px;
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.01);
+}
+
+.user-table tr {
+  background: transparent;
+}
+
+.user-table-action {
+  background: #f5f7fa;
+  border: none;
+  border-radius: 50px;
+  width: 36px;
+  height: 34px;
+  color: #122c6a;
+  font-size: 20px;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.user-status {
+  font-weight: 600;
+  padding: 6px 16px;
+  border-radius: 12px;
+  display: inline-block;
+  font-size: 14px;
+}
+
+.user-status-failed {
+  background: #feeff1;
+  color: #fe5c73;
+}
+
+.user-status-success {
+  background: #eafaf1;
+  color: #2ecc71;
+}
+
+.user-status-provisioning {
+  background: #f5f7fa;
+  color: #718dc0;
+}
+
+.user-status-deleting {
+  background: #fff6e6;
+  color: #f5a623;
+}
+
+.user-table-loading,
+.user-table-error {
+  text-align: center;
+  padding: 40px 0;
+  color: #718dc0;
+  font-size: 18px;
+}
+
+.user-table-action-menu {
+  position: absolute;
+  top: 40px;
+  right: 0;
+  background: #fff;
+  border: 1px solid #e6eff5;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  z-index: 100;
+  min-width: 120px;
+  display: flex;
+  flex-direction: column;
+  padding: 4px 0;
+}
+.user-table-action-menu button {
+  background: none;
+  border: none;
+  padding: 10px 16px 10px 36px;
+  text-align: left;
+  cursor: pointer;
+  font-size: 15px;
+  color: #344c6b;
+  transition: background 0.1s;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.user-table-action-menu button:hover {
+  background: #f5f7fa;
+}
+.user-table-action-menu .edit-icon {
+  position: absolute;
+  left: 12px;
+  font-size: 16px;
+  color: #2d60ff;
+}
+.user-table-action-menu .delete-icon {
+  position: absolute;
+  left: 12px;
+  font-size: 16px;
+  color: #fe5c73;
+}

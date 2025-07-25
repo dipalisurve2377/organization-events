@@ -24,6 +24,7 @@
   "dependencies": {
     "@temporalio/client": "^1.12.1",
     "axios": "^1.10.0",
+    "date-fns": "^4.1.0",
     "mongoose": "^8.16.4",
     "nodemailer": "^7.0.5",
     "ts-node": "^10.9.2",
