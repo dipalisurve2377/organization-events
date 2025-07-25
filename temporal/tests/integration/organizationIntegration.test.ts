@@ -4,7 +4,7 @@ import mongoose from "mongoose";
 
 const API_BASE_URL = "http://localhost:7001";
 const MONGO_URI =
-  "mongodb+srv://dipali:userorg2000@cluster0.as6jcdi.mongodb.net/user-org-db"; // Update if needed
+  "mongodb+srv://dipali:userorg2000@cluster0.as6jcdi.mongodb.net/user-org-db";
 
 describe("Organization API", function () {
   this.timeout(20000);
