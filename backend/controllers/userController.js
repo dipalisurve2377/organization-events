@@ -100,17 +100,45 @@ export const deleteUserController = async (req, res) => {
 
 export const listUsersController = async (req, res) => {
   try {
+    const dbUsers = await User.find({});
+
     const users = await triggerListUsers();
+    console.log(users, dbUsers);
     const cleanedUsers = users.map((user) => ({
+      id: dbUsers.find(({ email }) => {
+        email === user.email;
+      }),
+      test: "mytest",
       name: user.name,
       email: user.email,
-      user_id: user.user_id,
+      status: user.status,
       created_at: user.created_at,
     }));
 
-    res.status(200).json({ users: cleanedUsers });
+    res.status(200).json({ users: dbUsers });
   } catch (error) {
     console.error("Error listing users:", error);
     res.status(500).json({ error: "Failed to fetch users from Auth0" });
+  }
+};
+
+export const getUserByIdController = async (req, res) => {
+  const userId = req.params.id;
+  if (!userId || userId === "undefined") {
+    return res
+      .status(400)
+      .json({ error: "User ID is required.", statusCode: 400 });
+  }
+  try {
+    const user = await User.findById(userId);
+    if (!user) {
+      return res
+        .status(404)
+        .json({ error: "User not found.", statusCode: 404 });
+    }
+    res.status(200).json({ user });
+  } catch (error) {
+    console.error("Error fetching user by ID:", error);
+    res.status(500).json({ error: "Failed to fetch user by ID" });
   }
 };

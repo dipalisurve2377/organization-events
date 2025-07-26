@@ -2,7 +2,7 @@
   "name": "temporal",
   "version": "1.0.0",
   "main": "index.js",
-  "type": "commonjs",
+  "type": "module",
   "scripts": {
     "test": "mocha --exit --require ts-node/register --extension ts \"tests/**/*.test.ts\"",
     "dev:worker": "node --loader ts-node/esm worker.ts"

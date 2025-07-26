@@ -57,24 +57,34 @@
   font-size: 14px;
 }
 
-.user-status-failed {
-  background: #feeff1;
+td.user-status.user-status-failed {
+  background: #fff0f3;
   color: #fe5c73;
+  font-weight: bold;
 }
 
-.user-status-success {
-  background: #eafaf1;
-  color: #2ecc71;
+td.user-status.user-status-success {
+  background: #eafff7;
+  color: #2ee6b7;
+  font-weight: bold;
 }
 
-.user-status-provisioning {
-  background: #f5f7fa;
-  color: #718dc0;
-}
-
-.user-status-deleting {
-  background: #fff6e6;
+td.user-status.user-status-provisioning {
+  background: #fff8e1;
   color: #f5a623;
+  font-weight: bold;
+}
+
+td.user-status.user-status-deleting {
+  background: #fff8e1;
+  color: #f5a623;
+  font-weight: bold;
+}
+
+td.user-status.user-status-updated {
+  background: #eaf6ff;
+  color: #3498db;
+  font-weight: bold;
 }
 
 .user-table-loading,

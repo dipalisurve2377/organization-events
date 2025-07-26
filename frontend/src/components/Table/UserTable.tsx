@@ -32,6 +32,14 @@ const fetchUsers = async (): Promise<User[]> => {
   });
 };
 
+const statusClassMap: Record<string, string> = {
+  failed: "failed",
+  success: "success",
+  updated: "updated",
+  provisioning: "provisioning",
+  deleting: "deleting",
+};
+
 const UserTable: React.FC = () => {
   const {
     data: users = [],
@@ -74,7 +82,7 @@ const UserTable: React.FC = () => {
               </td>
               <td
                 className={`user-status user-status-${
-                  user.status ? user.status.toLowerCase() : "unknown"
+                  statusClassMap[user.status?.toLowerCase() || ""]
                 }`}
               >
                 {user.status || "-"}
@@ -93,7 +101,13 @@ const UserTable: React.FC = () => {
                 </button>
                 {openMenuId === user.id && (
                   <div className="user-table-action-menu">
-                    <button onClick={() => navigate(`/users/edit/${user.id}`)}>
+                    <button
+                      onClick={() =>
+                        navigate(
+                          `/users/edit/${user.id.replace(/^auth0\|/, "")}`
+                        )
+                      }
+                    >
                       <span className="edit-icon">
                         <svg
                           width="16"
