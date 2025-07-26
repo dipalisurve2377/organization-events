@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { deleteUser, getUser } from "../../api/user";
 import "./DeleteUser.css";
 
 const DeleteUser: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(false);
@@ -31,6 +33,8 @@ const DeleteUser: React.FC = () => {
     setError(null);
     try {
       await deleteUser(id!);
+      // Invalidate and refetch the users query to update the table
+      queryClient.invalidateQueries({ queryKey: ["users"] });
       navigate("/users");
     } catch (err: any) {
       setError("Failed to delete user");

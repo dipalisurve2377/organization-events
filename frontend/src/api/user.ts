@@ -10,5 +10,6 @@ export const getUser = async (id: string) => {
 };
 
 export const deleteUser = async (id: string) => {
-  return axios.delete(`http://localhost:7001/api/users/${id}`);
+  const res = await axios.delete(`http://localhost:7001/api/users/${id}`);
+  return res;
 };

@@ -323,6 +323,32 @@ export const deleteUserFromAuth0 = async (email: string): Promise<void> => {
   }
 };
 
+export const getUserInfo = async (
+  email: string
+): Promise<{ auth0Id?: string; status?: string } | null> => {
+  try {
+    await connectDB();
+
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      return null;
+    }
+
+    return {
+      auth0Id: user.auth0Id,
+      status: user.status,
+    };
+  } catch (error: any) {
+    console.error("Error getting user info:", error);
+    throw ApplicationFailure.create({
+      message: `Failed to get user info for email: ${email}. ${error.message}`,
+      type: "MongoGetUserInfoFailure",
+      nonRetryable: false,
+    });
+  }
+};
+
 export const deleteUserFromDB = async (userId: string): Promise<void> => {
   try {
     await connectDB();

@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import "./UserTable.css";
+import { deleteUser } from "../../api/user";
 
 interface User {
   id: string;
@@ -45,6 +46,7 @@ const UserTable: React.FC = () => {
     data: users = [],
     isLoading,
     isError,
+    refetch,
   } = useQuery<User[]>({
     queryKey: ["users"],
     queryFn: fetchUsers,
@@ -130,7 +132,10 @@ const UserTable: React.FC = () => {
                       Edit
                     </button>
                     <button
-                      onClick={() => navigate(`/users/delete/${user.id}`)}
+                      onClick={async () => {
+                        await deleteUser(user.id);
+                        refetch();
+                      }}
                     >
                       <span className="delete-icon">
                         <svg
