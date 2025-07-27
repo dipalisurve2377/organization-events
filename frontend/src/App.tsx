@@ -6,11 +6,12 @@ import Signup from "./pages/User/Signup";
 import Dashboard from "./pages/Dashboard/Dashboard";
 import ProtectedRoute from "./components/Common/ProtectedRoute";
 import { Routes, Route } from "react-router-dom";
+import { SearchProvider } from "./components/SearchBar/SearchContext";
 // ...
 
 function App() {
   return (
-    <>
+    <SearchProvider>
       <div style={{ display: "flex" }}>
         <Sidebar />
         <div style={{ flex: 1 }}>
@@ -59,7 +60,7 @@ function App() {
           </div>
         </div>
       </div>
-    </>
+    </SearchProvider>
   );
 }
 

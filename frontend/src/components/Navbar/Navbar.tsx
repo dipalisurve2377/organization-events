@@ -1,11 +1,13 @@
 import React, { useState } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
 import "./Navbar.css";
+import { useSearchContext } from "../SearchBar/SearchContext";
 
 const Navbar: React.FC = () => {
   const { isAuthenticated, loginWithRedirect, logout, user, isLoading } =
     useAuth0();
   const [showUserDropdown, setShowUserDropdown] = useState(false);
+  const { searchTerm, setSearchTerm } = useSearchContext();
 
   const handleLogin = () => {
     loginWithRedirect();
@@ -60,6 +62,8 @@ const Navbar: React.FC = () => {
             type="text"
             placeholder="Search for something"
             className="navbar-search-input"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
 

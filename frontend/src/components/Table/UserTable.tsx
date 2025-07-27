@@ -6,6 +6,7 @@ import { useNavigate } from "react-router-dom";
 import "./UserTable.css";
 import { deleteUser } from "../../api/user";
 import Button from "../Button/Button";
+import { useSearchContext } from "../SearchBar/SearchContext";
 
 interface User {
   id: string;
@@ -56,12 +57,26 @@ const UserTable: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(3);
   const navigate = useNavigate();
+  const { searchTerm } = useSearchContext();
+
+  // Filter users based on search term
+  const filteredUsers = users.filter((user) => {
+    if (!searchTerm) return true;
+
+    const searchLower = searchTerm.toLowerCase();
+    return (
+      user.name.toLowerCase().includes(searchLower) ||
+      user.email.toLowerCase().includes(searchLower) ||
+      user.id.toLowerCase().includes(searchLower) ||
+      (user.status && user.status.toLowerCase().includes(searchLower))
+    );
+  });
 
   // Calculate pagination
-  const totalPages = Math.ceil(users.length / itemsPerPage);
+  const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
-  const currentUsers = users.slice(startIndex, endIndex);
+  const currentUsers = filteredUsers.slice(startIndex, endIndex);
 
   // Generate page numbers to display
   const getPageNumbers = () => {
