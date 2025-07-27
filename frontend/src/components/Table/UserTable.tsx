@@ -5,6 +5,7 @@ import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import "./UserTable.css";
 import { deleteUser } from "../../api/user";
+import Button from "../Button/Button";
 
 interface User {
   id: string;
@@ -60,6 +61,27 @@ const UserTable: React.FC = () => {
 
   return (
     <div className="user-table-container">
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: "1.5rem",
+          padding: "0 1rem",
+        }}
+      >
+        {/* <h2 style={{ margin: 0, fontSize: "1.5rem", fontWeight: "600" }}>
+          Users
+        </h2> */}
+        <Button
+          variant="primary"
+          size="medium"
+          onClick={() => navigate("/signup")}
+          className="create-user-button"
+        >
+          Create User
+        </Button>
+      </div>
       <table className="user-table">
         <thead>
           <tr>

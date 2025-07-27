@@ -1,0 +1,102 @@
+import React, { useState } from "react";
+import { createUser } from "../../api/user";
+import Button from "../../components/Button/Button";
+import { useNavigate } from "react-router-dom";
+import "./Signup.css";
+
+const Signup: React.FC = () => {
+  const [form, setForm] = useState({ name: "", email: "", password: "" });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+  const navigate = useNavigate();
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setForm({ ...form, [e.target.name]: e.target.value });
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    setSuccess(false);
+    try {
+      await createUser(form);
+      setSuccess(true);
+      setForm({ name: "", email: "", password: "" });
+      // Redirect to user table after successful signup
+      setTimeout(() => {
+        navigate("/");
+      }, 1500);
+    } catch (err: any) {
+      setError(err.response?.data?.message || "Signup failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="signup-container">
+      <div className="signup-content">
+        <div className="signup-header">
+          <h2 className="signup-title">Sign Up</h2>
+          <Button
+            variant="secondary"
+            size="small"
+            onClick={() => navigate("/")}
+            className="back-button"
+          >
+            Back to Users
+          </Button>
+        </div>
+        <form onSubmit={handleSubmit} className="signup-form">
+          <div className="form-group">
+            <label className="form-label">Name</label>
+            <input
+              type="text"
+              name="name"
+              value={form.name}
+              onChange={handleChange}
+              required
+              className="form-input"
+            />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Email</label>
+            <input
+              type="email"
+              name="email"
+              value={form.email}
+              onChange={handleChange}
+              required
+              className="form-input"
+            />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Password</label>
+            <input
+              type="password"
+              name="password"
+              value={form.password}
+              onChange={handleChange}
+              required
+              className="form-input"
+            />
+          </div>
+          <button type="submit" disabled={loading} className="submit-button">
+            {loading && <span className="loading-spinner"></span>}
+            {loading ? "Signing up..." : "Sign Up"}
+          </button>
+          {error && <div className="message error">{error}</div>}
+          {success && (
+            <div className="message success">
+              User created successfully! Redirecting to user list...
+            </div>
+          )}
+        </form>
+      </div>
+    </div>
+  );
+};
+
+export default Signup;

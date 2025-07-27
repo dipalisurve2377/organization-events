@@ -1,11 +1,10 @@
 .user-table-container {
   background: #fff;
-  border-radius: 25px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   padding: 32px 24px;
-  width: 100%;
-  max-width: 1110px;
-  margin: 40px auto;
+  margin-left: 240px;
+  margin-right: 40px;
+  margin-top: 56px;
 }
 
 .user-table {
@@ -137,4 +136,9 @@ td.user-status.user-status-updated {
   left: 12px;
   font-size: 16px;
   color: #fe5c73;
+}
+
+.create-user-button {
+  margin-left: auto;
+  padding-right: 140px;
 }

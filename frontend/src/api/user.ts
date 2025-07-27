@@ -13,3 +13,11 @@ export const deleteUser = async (id: string) => {
   const res = await axios.delete(`http://localhost:7001/api/users/${id}`);
   return res;
 };
+
+export const createUser = async (data: {
+  name: string;
+  email: string;
+  password: string;
+}) => {
+  return axios.post("http://localhost:7001/api/users", data);
+};

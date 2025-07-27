@@ -1,6 +1,6 @@
 .navbar {
   width: 100%;
-  height: 100px;
+  height: 101px;
   background: #fff;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.03);
   display: flex;
@@ -11,13 +11,14 @@
 }
 
 .navbar-content {
-  width: 1110px;
+  width: 1440px;
   max-width: 100vw;
   display: flex;
   align-items: center;
   justify-content: space-between;
   height: 60px;
   margin-top: 20px;
+  padding: 0 20px;
 }
 
 .navbar-title {
@@ -29,6 +30,7 @@
   display: flex;
   align-items: center;
   height: 100%;
+  margin-left: 40px;
 }
 
 .navbar-search {
@@ -41,6 +43,7 @@
   padding: 0 20px;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.01);
   margin: 0 40px;
+  position: relative;
 }
 
 .navbar-search-icon {
@@ -56,6 +59,10 @@
   width: 100%;
 }
 
+.navbar-search-input::placeholder {
+  color: #8b9eca;
+}
+
 .navbar-right {
   display: flex;
   align-items: center;
@@ -63,7 +70,7 @@
   height: 100%;
 }
 
-.navbar-notification {
+.navbar-icon {
   width: 50px;
   height: 50px;
   background: #f5f7fa;
@@ -72,6 +79,33 @@
   align-items: center;
   justify-content: center;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.01);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-right: 20px;
+}
+
+.navbar-icon:hover {
+  background: #e8ecf2;
+}
+
+.navbar-login-button {
+  padding: 12px 24px;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.navbar-login-button:hover {
+  background: #2563eb;
+}
+
+.navbar-user-profile {
+  position: relative;
 }
 
 .navbar-avatar {
@@ -83,10 +117,63 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: all 0.2s ease;
+  margin-left: 20px;
+}
+
+.navbar-avatar:hover {
+  transform: scale(1.05);
 }
 
 .navbar-avatar img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.navbar-user-dropdown {
+  position: absolute;
+  top: 70px;
+  right: 0;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  min-width: 200px;
+  z-index: 1000;
+  border: 1px solid #e5e7eb;
+}
+
+.dropdown-item {
+  padding: 12px 16px;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  font-size: 14px;
+  color: #374151;
+  transition: background-color 0.2s ease;
+}
+
+.dropdown-item:hover {
+  background-color: #f9fafb;
+}
+
+.dropdown-item span {
+  font-weight: 500;
+}
+
+.logout-button {
+  color: #ef4444 !important;
+  font-weight: 600;
+}
+
+.logout-button:hover {
+  background-color: #fef2f2 !important;
+}
+
+.dropdown-divider {
+  height: 1px;
+  background-color: #e5e7eb;
+  margin: 4px 0;
 }
