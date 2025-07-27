@@ -53,7 +53,67 @@ const UserTable: React.FC = () => {
     queryFn: fetchUsers,
   });
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(3);
   const navigate = useNavigate();
+
+  // Calculate pagination
+  const totalPages = Math.ceil(users.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentUsers = users.slice(startIndex, endIndex);
+
+  // Generate page numbers to display
+  const getPageNumbers = () => {
+    const pages = [];
+    const maxVisiblePages = 5;
+
+    if (totalPages <= maxVisiblePages) {
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      if (currentPage <= 3) {
+        for (let i = 1; i <= 4; i++) {
+          pages.push(i);
+        }
+        pages.push("...");
+        pages.push(totalPages);
+      } else if (currentPage >= totalPages - 2) {
+        pages.push(1);
+        pages.push("...");
+        for (let i = totalPages - 3; i <= totalPages; i++) {
+          pages.push(i);
+        }
+      } else {
+        pages.push(1);
+        pages.push("...");
+        for (let i = currentPage - 1; i <= currentPage + 1; i++) {
+          pages.push(i);
+        }
+        pages.push("...");
+        pages.push(totalPages);
+      }
+    }
+
+    return pages;
+  };
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
+  const handlePrevious = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  const handleNext = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
 
   if (isLoading) return <div className="user-table-loading">Loading...</div>;
   if (isError)
@@ -94,7 +154,7 @@ const UserTable: React.FC = () => {
           </tr>
         </thead>
         <tbody>
-          {users.map((user: User) => (
+          {currentUsers.map((user: User) => (
             <tr key={user.id}>
               <td>{user.id ? user.id.replace(/^auth0\|/, "") : "-"}</td>
               <td>{user.email || "-"}</td>
@@ -187,6 +247,75 @@ const UserTable: React.FC = () => {
           ))}
         </tbody>
       </table>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="pagination-container">
+          <div className="pagination">
+            {/* Previous Button */}
+            <button
+              className={`pagination-button ${
+                currentPage === 1 ? "disabled" : ""
+              }`}
+              onClick={handlePrevious}
+              disabled={currentPage === 1}
+            >
+              <svg width="12" height="6" viewBox="0 0 12 6" fill="none">
+                <path
+                  d="M11 1L6 5L1 1"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  transform="rotate(90 6 3)"
+                />
+              </svg>
+              <span>Previous</span>
+            </button>
+
+            {/* Page Numbers */}
+            <div className="page-numbers">
+              {getPageNumbers().map((page, index) => (
+                <React.Fragment key={index}>
+                  {page === "..." ? (
+                    <span className="page-ellipsis">...</span>
+                  ) : (
+                    <button
+                      className={`page-number ${
+                        currentPage === page ? "active" : ""
+                      }`}
+                      onClick={() => handlePageChange(page as number)}
+                    >
+                      {page}
+                    </button>
+                  )}
+                </React.Fragment>
+              ))}
+            </div>
+
+            {/* Next Button */}
+            <button
+              className={`pagination-button ${
+                currentPage === totalPages ? "disabled" : ""
+              }`}
+              onClick={handleNext}
+              disabled={currentPage === totalPages}
+            >
+              <span>Next</span>
+              <svg width="12" height="6" viewBox="0 0 12 6" fill="none">
+                <path
+                  d="M1 1L6 5L11 1"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  transform="rotate(-90 6 3)"
+                />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
