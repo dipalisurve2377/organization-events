@@ -3,9 +3,10 @@ import axios from "axios";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
 import "./UserTable.css";
 import { deleteUser } from "../../api/user";
-import Button from "../Button/Button";
+
 import { useSearchContext } from "../SearchBar/SearchContext";
 
 interface User {
@@ -162,21 +163,94 @@ const UserTable: React.FC = () => {
     setDeleteError(null);
 
     try {
-      // Delete the user
+      // Start the delete workflow
       await deleteUser(userToDelete.id);
+
+      // Poll for status updates until the user is deleted or status changes
+      let attempts = 0;
+      const maxAttempts = 30; // 30 seconds max
+      const pollInterval = 1000; // 1 second
+
+      const pollForDeletion = async () => {
+        try {
+          // Refetch users to get updated status
+          await refetch();
+
+          // Check if user still exists and get their current status
+          const updatedUsers = await fetchUsers();
+          const updatedUser = updatedUsers.find(
+            (u) => u.id === userToDelete.id
+          );
+
+          if (!updatedUser) {
+            // User has been completely deleted
+            return true;
+          }
+
+          if (updatedUser.status === "deleted") {
+            // User has been marked as deleted
+            return true;
+          }
+
+          if (updatedUser.status === "failed") {
+            throw new Error("User deletion failed");
+          }
+
+          // Still processing, continue polling
+          return false;
+        } catch (error) {
+          console.error("Error polling for deletion status:", error);
+          return false;
+        }
+      };
+
+      // Poll until deletion is complete or max attempts reached
+      while (attempts < maxAttempts) {
+        const isComplete = await pollForDeletion();
+        if (isComplete) {
+          break;
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, pollInterval));
+        attempts++;
+      }
+
+      if (attempts >= maxAttempts) {
+        throw new Error(
+          "Delete operation timed out. Please refresh the page to see the current status."
+        );
+      }
 
       // Invalidate the cache and refetch fresh data
       queryClient.invalidateQueries({ queryKey: ["users"] });
-
-      // Wait for the fresh data to be loaded
       await refetch();
 
-      // Close modal and reset state only after data is refreshed
+      // Close modal and reset state
       setShowDeleteModal(false);
       setUserToDelete(null);
       setDeleteConfirmation("");
+
+      // Show success toast
+      toast.success("User deleted successfully!", {
+        position: "top-right",
+        autoClose: 3000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+      });
     } catch (err: any) {
-      setDeleteError("Failed to delete user. Please try again.");
+      const errorMessage =
+        err.message || "Failed to delete user. Please try again.";
+      setDeleteError(errorMessage);
+      toast.error(errorMessage, {
+        position: "top-right",
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+      });
     } finally {
       setDeleteLoading(false);
     }
@@ -420,7 +494,17 @@ const UserTable: React.FC = () => {
                   deleteLoading || deleteConfirmation !== userToDelete.name
                 }
               >
-                {deleteLoading ? "Deleting..." : "Delete User"}
+                {deleteLoading ? (
+                  <>
+                    <span
+                      className="loading-spinner"
+                      style={{ marginRight: 8 }}
+                    ></span>
+                    Deleting User...
+                  </>
+                ) : (
+                  "Delete User"
+                )}
               </button>
             </div>
           </div>

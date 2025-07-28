@@ -3,12 +3,14 @@ import Sidebar from "./components/Sidebar/Sidebar";
 import UserTable from "./components/Table/UserTable";
 import OrganizationTable from "./components/Table/OrganizationTable";
 import EditUser from "./pages/User/EditUser";
-import Signup from "./pages/User/Signup";
+import CreateUser from "./pages/User/CreateUser";
 import Dashboard from "./pages/Dashboard/Dashboard";
 import ProtectedRoute from "./components/Common/ProtectedRoute";
 import { Routes, Route, useNavigate } from "react-router-dom";
 import { SearchProvider } from "./components/SearchBar/SearchContext";
 import Button from "./components/Button/Button";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 function UsersHomeWrapper() {
   const navigate = useNavigate();
@@ -24,7 +26,7 @@ function UsersHomeWrapper() {
         <Button
           variant="primary"
           size="medium"
-          onClick={() => navigate("/signup")}
+          onClick={() => navigate("/create-user")}
           className="create-user-button"
         >
           Create User
@@ -61,10 +63,10 @@ function App() {
                 }
               />
               <Route
-                path="/signup"
+                path="/create-user"
                 element={
                   <ProtectedRoute>
-                    <Signup />
+                    <CreateUser />
                   </ProtectedRoute>
                 }
               />
@@ -94,6 +96,18 @@ function App() {
           </div>
         </div>
       </div>
+      <ToastContainer
+        position="top-right"
+        autoClose={3000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="light"
+      />
     </SearchProvider>
   );
 }

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useQueryClient } from "@tanstack/react-query";
-import { updateUser, getUser } from "../../api/user";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { getUser, updateUser } from "../../api/user";
+import { toast } from "react-toastify";
 import "./EditUser.css";
 
 const EditUser: React.FC = () => {
@@ -43,6 +44,16 @@ const EditUser: React.FC = () => {
         "User updated successfully! Please wait while we redirect you..."
       );
 
+      // Show toast notification
+      toast.success("User updated successfully!", {
+        position: "top-right",
+        autoClose: 3000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+      });
+
       // Invalidate the users cache to force a fresh fetch
       await queryClient.invalidateQueries({ queryKey: ["users"] });
 
@@ -52,7 +63,16 @@ const EditUser: React.FC = () => {
         navigate("/");
       }, 2000);
     } catch (err: any) {
-      setError("Failed to update user");
+      const errorMessage = "Failed to update user";
+      setError(errorMessage);
+      toast.error(errorMessage, {
+        position: "top-right",
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+      });
     } finally {
       setLoading(false);
     }

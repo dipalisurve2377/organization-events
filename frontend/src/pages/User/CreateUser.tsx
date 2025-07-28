@@ -2,9 +2,10 @@ import React, { useState } from "react";
 import { createUser } from "../../api/user";
 import Button from "../../components/Button/Button";
 import { useNavigate } from "react-router-dom";
-import "./Signup.css";
+import { toast } from "react-toastify";
+import "./CreateUser.css";
 
-const Signup: React.FC = () => {
+const CreateUser: React.FC = () => {
   const [form, setForm] = useState({ name: "", email: "", password: "" });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -24,12 +25,30 @@ const Signup: React.FC = () => {
       await createUser(form);
       setSuccess(true);
       setForm({ name: "", email: "", password: "" });
+      toast.success("User created successfully!", {
+        position: "top-right",
+        autoClose: 3000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+      });
       // Redirect to user table after successful signup
       setTimeout(() => {
         navigate("/");
       }, 1500);
     } catch (err: any) {
-      setError(err.response?.data?.message || "Signup failed");
+      const errorMessage =
+        err.response?.data?.message || "Failed to create user";
+      setError(errorMessage);
+      toast.error(errorMessage, {
+        position: "top-right",
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+      });
     } finally {
       setLoading(false);
     }
@@ -101,4 +120,4 @@ const Signup: React.FC = () => {
   );
 };
 
-export default Signup;
+export default CreateUser;

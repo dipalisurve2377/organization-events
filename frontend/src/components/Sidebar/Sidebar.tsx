@@ -6,7 +6,10 @@ const Sidebar: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const isUsersActive = location.pathname === "/";
+  const isUsersActive =
+    location.pathname === "/" ||
+    location.pathname.startsWith("/users") ||
+    location.pathname.startsWith("/create-user");
   const isOrganizationsActive = location.pathname === "/organizations";
 
   return (

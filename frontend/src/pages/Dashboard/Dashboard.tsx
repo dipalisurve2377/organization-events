@@ -89,7 +89,7 @@ const Dashboard: React.FC = () => {
       <div style={{ marginBottom: "2rem" }}>
         <h2 style={{ marginBottom: "1rem" }}>Quick Actions</h2>
         <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
-          <Link to="/signup" style={{ textDecoration: "none" }}>
+          <Link to="/create-user" style={{ textDecoration: "none" }}>
             <Button variant="primary" size="large">
               Create New User
             </Button>
@@ -132,7 +132,7 @@ const Dashboard: React.FC = () => {
                 View Users
               </Button>
             </Link>
-            <Link to="/signup" style={{ textDecoration: "none" }}>
+            <Link to="/create-user" style={{ textDecoration: "none" }}>
               <Button variant="secondary" size="medium">
                 Add User
               </Button>
