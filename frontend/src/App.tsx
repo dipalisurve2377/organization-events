@@ -5,6 +5,7 @@ import OrganizationTable from "./components/Table/OrganizationTable";
 import EditUser from "./pages/User/EditUser";
 import CreateUser from "./pages/User/CreateUser";
 import CreateOrganization from "./pages/Organization/CreateOrganization";
+import EditOrganization from "./pages/Organization/EditOrganization";
 import Dashboard from "./pages/Dashboard/Dashboard";
 import ProtectedRoute from "./components/Common/ProtectedRoute";
 import { Routes, Route, useNavigate } from "react-router-dom";
@@ -117,6 +118,14 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <CreateOrganization />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/organizations/edit/:id"
+                element={
+                  <ProtectedRoute>
+                    <EditOrganization />
                   </ProtectedRoute>
                 }
               />

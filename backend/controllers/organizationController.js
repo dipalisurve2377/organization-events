@@ -123,6 +123,33 @@ export const deleteOrganizationController = async (req, res) => {
   }
 };
 
+// controller for getting a single organization
+
+export const getOrganizationByIdController = async (req, res) => {
+  const orgId = req.params.id;
+
+  if (!orgId || orgId == "undefined") {
+    return res
+      .status(400)
+      .json({ error: "Organization ID is required", statusCode: 400 });
+  }
+
+  try {
+    const organization = await Organization.findById(orgId);
+
+    if (!organization) {
+      return res
+        .status(404)
+        .json({ error: "Organization not found", statusCode: 404 });
+    }
+
+    res.status(200).json({ organization });
+  } catch (error) {
+    console.error("Error fetching organization:", error);
+    res.status(500).json({ error: "Failed to fetch organization" });
+  }
+};
+
 // controller for list of organizations
 
 export const listOrganizationController = async (req, res) => {

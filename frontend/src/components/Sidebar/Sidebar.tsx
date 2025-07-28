@@ -10,7 +10,10 @@ const Sidebar: React.FC = () => {
     location.pathname === "/" ||
     location.pathname.startsWith("/users") ||
     location.pathname.startsWith("/create-user");
-  const isOrganizationsActive = location.pathname === "/organizations";
+  const isOrganizationsActive =
+    location.pathname === "/organizations" ||
+    location.pathname.startsWith("/organizations/create") ||
+    location.pathname.startsWith("/organizations/edit");
 
   return (
     <aside className="sidebar">

@@ -29,3 +29,21 @@ export const getOrganizations = async (): Promise<Organization[]> => {
   >(`${API_BASE_URL}/organizations`);
   return (response.data as any).organizations || response.data || [];
 };
+
+// Get single organization
+export const getOrganization = async (id: string): Promise<Organization> => {
+  const response = await axios.get<any>(`${API_BASE_URL}/organizations/${id}`);
+  return response.data.organization || response.data;
+};
+
+// Update organization
+export const updateOrganization = async (
+  id: string,
+  organization: Partial<Organization>
+): Promise<Organization> => {
+  const response = await axios.put<Organization>(
+    `${API_BASE_URL}/organizations/${id}`,
+    organization
+  );
+  return response.data;
+};
