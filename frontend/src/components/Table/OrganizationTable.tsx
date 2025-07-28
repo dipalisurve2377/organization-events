@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
-import "./OrganizationTable.css";
+import "./UserTable.css";
 import { getOrganizations } from "../../api/organization";
 import Button from "../Button/Button";
 import { useSearchContext } from "../SearchBar/SearchContext";
@@ -53,7 +53,7 @@ const OrganizationTable: React.FC = () => {
   });
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(3);
+  const [itemsPerPage] = useState(5);
   const navigate = useNavigate();
   const { searchTerm } = useSearchContext();
 
@@ -133,147 +133,124 @@ const OrganizationTable: React.FC = () => {
     }
   };
 
-  if (isLoading)
-    return <div className="organization-table-loading">Loading...</div>;
+  if (isLoading) return <div className="user-table-loading">Loading...</div>;
   if (isError)
     return (
-      <div className="organization-table-error">
-        Failed to fetch organizations
-      </div>
+      <div className="user-table-error">Failed to fetch organizations</div>
     );
 
   return (
-    <div className="organization-table-container">
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: "1.5rem",
-          padding: "0 1rem",
-        }}
-      >
-        <Button
-          variant="primary"
-          size="medium"
-          onClick={() => navigate("/organizations/create")}
-          className="create-organization-button"
-        >
-          Create Organization
-        </Button>
-      </div>
-      <table className="organization-table">
-        <thead>
-          <tr>
-            <th>Id</th>
-            <th>Name</th>
-            <th>Identifier</th>
-            <th>Created By</th>
-            <th>Created at</th>
-            <th>Status</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {currentOrganizations.map((org: Organization) => (
-            <tr key={org.id}>
-              <td>{org.id ? org.id.replace(/^auth0\|/, "") : "-"}</td>
-              <td>{org.name || "-"}</td>
-              <td>{org.identifier || "-"}</td>
-              <td>{org.createdByEmail || "-"}</td>
-              <td>
-                {org.createdAt && org.createdAt !== "-"
-                  ? format(new Date(org.createdAt), "dd MMM, yyyy, HH:mm:ss")
-                  : "-"}
-              </td>
-              <td
-                className={`organization-status organization-status-${
-                  statusClassMap[org.status?.toLowerCase() || ""]
-                }`}
-              >
-                {org.status || "-"}
-              </td>
-              <td
-                className="organization-table-action-cell"
-                style={{ position: "relative" }}
-              >
-                <button
-                  className="organization-table-action"
-                  onClick={() =>
-                    setOpenMenuId(openMenuId === org.id ? null : org.id)
-                  }
-                >
-                  ...
-                </button>
-                {openMenuId === org.id && (
-                  <div className="organization-table-action-menu">
-                    <button
-                      onClick={() =>
-                        navigate(
-                          `/organizations/edit/${org.id.replace(
-                            /^auth0\|/,
-                            ""
-                          )}`
-                        )
-                      }
-                    >
-                      <span className="edit-icon">
-                        <svg
-                          width="16"
-                          height="16"
-                          viewBox="0 0 20 20"
-                          fill="none"
-                        >
-                          <path
-                            d="M4 13.5V16h2.5l7.06-7.06-2.5-2.5L4 13.5z"
-                            stroke="#2d60ff"
-                            strokeWidth="1.5"
-                          />
-                          <path
-                            d="M13.06 6.44l1.5-1.5a1 1 0 0 1 1.41 0l.59.59a1 1 0 0 1 0 1.41l-1.5 1.5-2.5-2.5z"
-                            stroke="#2d60ff"
-                            strokeWidth="1.5"
-                          />
-                        </svg>
-                      </span>
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => {
-                        // TODO: Implement delete functionality
-                        console.log("Delete organization:", org.id);
-                      }}
-                    >
-                      <span className="delete-icon">
-                        <svg
-                          width="16"
-                          height="16"
-                          viewBox="0 0 20 20"
-                          fill="none"
-                        >
-                          <path
-                            d="M6 7v7a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2V7"
-                            stroke="#fe5c73"
-                            strokeWidth="1.5"
-                          />
-                          <path
-                            d="M9 10v4M11 10v4M4 7h12M8 7V5a2 2 0 0 1 2-2h0a2 2 0 0 1 2 2v2"
-                            stroke="#fe5c73"
-                            strokeWidth="1.5"
-                          />
-                        </svg>
-                      </span>
-                      Delete
-                    </button>
-                  </div>
-                )}
-              </td>
+    <>
+      <div className="user-table-container">
+        <table className="user-table">
+          <thead>
+            <tr>
+              <th>Id</th>
+              <th>Name</th>
+              <th>Created at</th>
+              <th>Status</th>
+              <th>Actions</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {currentOrganizations.map((org: Organization) => (
+              <tr key={org.id}>
+                <td>{org.id ? org.id.replace(/^auth0\|/, "") : "-"}</td>
+                <td>{org.name || "-"}</td>
 
-      {/* Pagination */}
+                <td>
+                  {org.createdAt && org.createdAt !== "-"
+                    ? format(new Date(org.createdAt), "dd MMM, hh.mm a")
+                    : "-"}
+                </td>
+                <td
+                  className={`user-status user-status-${
+                    statusClassMap[org.status?.toLowerCase() || ""]
+                  }`}
+                >
+                  {org.status || "-"}
+                </td>
+                <td
+                  className="user-table-action-cell"
+                  style={{ position: "relative" }}
+                >
+                  <button
+                    className="user-table-action"
+                    onClick={() =>
+                      setOpenMenuId(openMenuId === org.id ? null : org.id)
+                    }
+                  >
+                    ...
+                  </button>
+                  {openMenuId === org.id && (
+                    <div className="user-table-action-menu">
+                      <button
+                        onClick={() =>
+                          navigate(
+                            `/organizations/edit/${org.id.replace(
+                              /^auth0\|/,
+                              ""
+                            )}`
+                          )
+                        }
+                      >
+                        <span className="edit-icon">
+                          <svg
+                            width="16"
+                            height="16"
+                            viewBox="0 0 20 20"
+                            fill="none"
+                          >
+                            <path
+                              d="M4 13.5V16h2.5l7.06-7.06-2.5-2.5L4 13.5z"
+                              stroke="#2d60ff"
+                              strokeWidth="1.5"
+                            />
+                            <path
+                              d="M13.06 6.44l1.5-1.5a1 1 0 0 1 1.41 0l.59.59a1 1 0 0 1 0 1.41l-1.5 1.5-2.5-2.5z"
+                              stroke="#2d60ff"
+                              strokeWidth="1.5"
+                            />
+                          </svg>
+                        </span>
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => {
+                          // TODO: Implement delete functionality
+                          console.log("Delete organization:", org.id);
+                        }}
+                      >
+                        <span className="delete-icon">
+                          <svg
+                            width="16"
+                            height="16"
+                            viewBox="0 0 20 20"
+                            fill="none"
+                          >
+                            <path
+                              d="M6 7v7a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2V7"
+                              stroke="#fe5c73"
+                              strokeWidth="1.5"
+                            />
+                            <path
+                              d="M9 10v4M11 10v4M4 7h12M8 7V5a2 2 0 0 1 2-2h0a2 2 0 0 1 2 2v2"
+                              stroke="#fe5c73"
+                              strokeWidth="1.5"
+                            />
+                          </svg>
+                        </span>
+                        Delete
+                      </button>
+                    </div>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {/* Pagination should be outside the card */}
       {totalPages > 1 && (
         <div className="pagination-container">
           <div className="pagination">
@@ -341,7 +318,7 @@ const OrganizationTable: React.FC = () => {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 };
 

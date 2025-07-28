@@ -127,6 +127,7 @@ export const deleteOrganizationController = async (req, res) => {
 
 export const listOrganizationController = async (req, res) => {
   try {
+    const dbOrganizations = await Organization.find({});
     const organizations = await triggerListOrganizations();
 
     const cleanedOrganizations = organizations.map((org) => ({
@@ -136,7 +137,7 @@ export const listOrganizationController = async (req, res) => {
       createdAt: org.created_at,
     }));
 
-    res.status(200).json({ organizations: cleanedOrganizations });
+    res.status(200).json({ organizations: dbOrganizations });
   } catch (error) {
     console.error("Error listing organizations:", error);
     res.status(500).json({ error: "Failed to fetch organizations from Auth0" });
