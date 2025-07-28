@@ -2,7 +2,8 @@
   background: #fff;
   border-radius: 20px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-  max-width: 500px;
+  width: 1110px;
+  height: 717px;
   margin: 32px auto;
   padding: 40px 32px 32px 32px;
 }
@@ -20,13 +21,26 @@
 .edit-user-form {
   display: flex;
   flex-direction: column;
-  gap: 32px;
+  height: calc(100% - 60px);
   margin-top: 32px;
 }
 
-.edit-user-form-single {
-  max-width: 400px;
-  margin: 0 auto;
+.edit-user-form-content {
+  display: flex;
+  gap: 40px;
+  flex: 1;
+}
+
+.edit-user-column {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.edit-user-field {
+  display: flex;
+  flex-direction: column;
 }
 
 .edit-user-label {
@@ -47,12 +61,19 @@
   margin-bottom: 0;
   margin-top: 8px;
   transition: border 0.2s;
+  box-sizing: border-box;
 }
 
 .edit-user-input:focus {
   border: 1.5px solid #1814f3;
   outline: none;
   background: #fff;
+}
+
+.edit-user-button-container {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 32px;
 }
 
 .edit-user-save-btn {
@@ -64,9 +85,7 @@
   font-size: 18px;
   font-weight: 600;
   cursor: pointer;
-  margin-top: 32px;
   transition: background 0.2s;
-  align-self: center;
 }
 
 .edit-user-save-btn:disabled {
@@ -78,4 +97,11 @@
   color: #fe5c73;
   margin-top: 8px;
   text-align: center;
+}
+
+.edit-user-success {
+  color: #28a745;
+  margin-top: 8px;
+  text-align: center;
+  font-weight: 500;
 }

@@ -8,10 +8,13 @@
   justify-content: center;
   position: relative;
   z-index: 10;
+
+  padding-bottom: 12px;
 }
 
 .navbar-content {
-  width: 1440px;
+  width: 100%;
+  height: 60px;
   max-width: 100vw;
   display: flex;
   align-items: center;
@@ -30,7 +33,7 @@
   display: flex;
   align-items: center;
   height: 100%;
-  margin-left: 40px;
+  margin-left: 280px;
 }
 
 .navbar-search {
@@ -68,6 +71,7 @@
   align-items: center;
   gap: 24px;
   height: 100%;
+  margin-right: 40px;
 }
 
 .navbar-icon {
@@ -86,6 +90,30 @@
 
 .navbar-icon:hover {
   background: #e8ecf2;
+}
+
+.navbar-notification {
+  width: 50px;
+  height: 50px;
+  background: #f5f7fa;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.01);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-right: 20px;
+}
+
+.navbar-notification:hover {
+  background: #e8ecf2;
+}
+
+.navbar-icon-img {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
 }
 
 .navbar-login-button {

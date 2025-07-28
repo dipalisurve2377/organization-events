@@ -13,6 +13,7 @@ const DeleteUser: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fetching, setFetching] = useState(true);
+  const [confirmationText, setConfirmationText] = useState("");
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -47,6 +48,9 @@ const DeleteUser: React.FC = () => {
     navigate("/users");
   };
 
+  // Check if the confirmation text matches the user's name exactly
+  const isConfirmationValid = confirmationText === user?.name;
+
   if (fetching) return <div className="delete-user-loading">Loading...</div>;
 
   if (!user) {
@@ -68,6 +72,27 @@ const DeleteUser: React.FC = () => {
         </div>
         <p>This action cannot be undone.</p>
 
+        <div className="delete-user-confirmation">
+          <p>
+            To confirm deletion, please type <strong>"{user.name}"</strong> in
+            the field below:
+          </p>
+          <input
+            type="text"
+            value={confirmationText}
+            onChange={(e) => setConfirmationText(e.target.value)}
+            placeholder={`Type "${user.name}" to confirm`}
+            className="delete-user-confirmation-input"
+            disabled={loading}
+          />
+          {confirmationText && !isConfirmationValid && (
+            <div className="delete-user-confirmation-error">
+              The name doesn't match. Please type the exact name to confirm
+              deletion.
+            </div>
+          )}
+        </div>
+
         {error && <div className="delete-user-error">{error}</div>}
 
         <div className="delete-user-actions">
@@ -81,7 +106,7 @@ const DeleteUser: React.FC = () => {
           <button
             className="delete-user-confirm-btn"
             onClick={handleDelete}
-            disabled={loading}
+            disabled={loading || !isConfirmationValid}
           >
             {loading ? "Deleting..." : "Delete User"}
           </button>

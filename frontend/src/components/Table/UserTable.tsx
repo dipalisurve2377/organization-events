@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import axios from "axios";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import "./UserTable.css";
@@ -44,6 +44,7 @@ const statusClassMap: Record<string, string> = {
 };
 
 const UserTable: React.FC = () => {
+  const queryClient = useQueryClient();
   const {
     data: users = [],
     isLoading,
@@ -55,9 +56,16 @@ const UserTable: React.FC = () => {
   });
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(3);
+  const [itemsPerPage] = useState(5);
   const navigate = useNavigate();
   const { searchTerm } = useSearchContext();
+
+  // Delete confirmation modal state
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<User | null>(null);
+  const [deleteConfirmation, setDeleteConfirmation] = useState("");
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   // Filter users based on search term
   const filteredUsers = users.filter((user) => {
@@ -130,140 +138,167 @@ const UserTable: React.FC = () => {
     }
   };
 
+  // Handle delete button click
+  const handleDeleteClick = (user: User) => {
+    setUserToDelete(user);
+    setShowDeleteModal(true);
+    setDeleteConfirmation("");
+    setDeleteError(null);
+    setOpenMenuId(null); // Close the action menu
+  };
+
+  // Handle actual delete
+  const handleConfirmDelete = async () => {
+    if (!userToDelete) return;
+
+    if (deleteConfirmation !== userToDelete.name) {
+      setDeleteError(
+        "Name does not match. Please type the exact name to confirm deletion."
+      );
+      return;
+    }
+
+    setDeleteLoading(true);
+    setDeleteError(null);
+
+    try {
+      // Delete the user
+      await deleteUser(userToDelete.id);
+
+      // Invalidate the cache and refetch fresh data
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+
+      // Wait for the fresh data to be loaded
+      await refetch();
+
+      // Close modal and reset state only after data is refreshed
+      setShowDeleteModal(false);
+      setUserToDelete(null);
+      setDeleteConfirmation("");
+    } catch (err: any) {
+      setDeleteError("Failed to delete user. Please try again.");
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
+  // Handle cancel delete
+  const handleCancelDelete = () => {
+    setShowDeleteModal(false);
+    setUserToDelete(null);
+    setDeleteConfirmation("");
+    setDeleteError(null);
+  };
+
   if (isLoading) return <div className="user-table-loading">Loading...</div>;
   if (isError)
     return <div className="user-table-error">Failed to fetch users</div>;
 
   return (
-    <div className="user-table-container">
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: "1.5rem",
-          padding: "0 1rem",
-        }}
-      >
-        {/* <h2 style={{ margin: 0, fontSize: "1.5rem", fontWeight: "600" }}>
-          Users
-        </h2> */}
-        <Button
-          variant="primary"
-          size="medium"
-          onClick={() => navigate("/signup")}
-          className="create-user-button"
-        >
-          Create User
-        </Button>
-      </div>
-      <table className="user-table">
-        <thead>
-          <tr>
-            <th>Id</th>
-            <th>Email</th>
-            <th>Name</th>
-            <th>Created at</th>
-            <th>Status</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {currentUsers.map((user: User) => (
-            <tr key={user.id}>
-              <td>{user.id ? user.id.replace(/^auth0\|/, "") : "-"}</td>
-              <td>{user.email || "-"}</td>
-              <td>{user.name || "-"}</td>
-              <td>
-                {user.createdAt && user.createdAt !== "-"
-                  ? format(new Date(user.createdAt), "dd MMM, yyyy, HH:mm:ss")
-                  : "-"}
-              </td>
-              <td
-                className={`user-status user-status-${
-                  statusClassMap[user.status?.toLowerCase() || ""]
-                }`}
-              >
-                {user.status || "-"}
-              </td>
-              <td
-                className="user-table-action-cell"
-                style={{ position: "relative" }}
-              >
-                <button
-                  className="user-table-action"
-                  onClick={() =>
-                    setOpenMenuId(openMenuId === user.id ? null : user.id)
-                  }
-                >
-                  ...
-                </button>
-                {openMenuId === user.id && (
-                  <div className="user-table-action-menu">
-                    <button
-                      onClick={() =>
-                        navigate(
-                          `/users/edit/${user.id.replace(/^auth0\|/, "")}`
-                        )
-                      }
-                    >
-                      <span className="edit-icon">
-                        <svg
-                          width="16"
-                          height="16"
-                          viewBox="0 0 20 20"
-                          fill="none"
-                        >
-                          <path
-                            d="M4 13.5V16h2.5l7.06-7.06-2.5-2.5L4 13.5z"
-                            stroke="#2d60ff"
-                            strokeWidth="1.5"
-                          />
-                          <path
-                            d="M13.06 6.44l1.5-1.5a1 1 0 0 1 1.41 0l.59.59a1 1 0 0 1 0 1.41l-1.5 1.5-2.5-2.5z"
-                            stroke="#2d60ff"
-                            strokeWidth="1.5"
-                          />
-                        </svg>
-                      </span>
-                      Edit
-                    </button>
-                    <button
-                      onClick={async () => {
-                        await deleteUser(user.id);
-                        refetch();
-                      }}
-                    >
-                      <span className="delete-icon">
-                        <svg
-                          width="16"
-                          height="16"
-                          viewBox="0 0 20 20"
-                          fill="none"
-                        >
-                          <path
-                            d="M6 7v7a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2V7"
-                            stroke="#fe5c73"
-                            strokeWidth="1.5"
-                          />
-                          <path
-                            d="M9 10v4M11 10v4M4 7h12M8 7V5a2 2 0 0 1 2-2h0a2 2 0 0 1 2 2v2"
-                            stroke="#fe5c73"
-                            strokeWidth="1.5"
-                          />
-                        </svg>
-                      </span>
-                      Delete
-                    </button>
-                  </div>
-                )}
-              </td>
+    <>
+      <div className="user-table-container">
+        <table className="user-table">
+          <thead>
+            <tr>
+              <th>Id</th>
+              <th>Email</th>
+              <th>Name</th>
+              <th>Created at</th>
+              <th>Status</th>
+              <th>Actions</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-
-      {/* Pagination */}
+          </thead>
+          <tbody>
+            {currentUsers.map((user: User) => (
+              <tr key={user.id}>
+                <td>{user.id ? user.id.replace(/^auth0\|/, "") : "-"}</td>
+                <td>{user.email || "-"}</td>
+                <td>{user.name || "-"}</td>
+                <td>
+                  {user.createdAt && user.createdAt !== "-"
+                    ? format(new Date(user.createdAt), "dd MMM, hh.mm a")
+                    : "-"}
+                </td>
+                <td
+                  className={`user-status user-status-${
+                    statusClassMap[user.status?.toLowerCase() || ""]
+                  }`}
+                >
+                  {user.status || "-"}
+                </td>
+                <td
+                  className="user-table-action-cell"
+                  style={{ position: "relative" }}
+                >
+                  <button
+                    className="user-table-action"
+                    onClick={() =>
+                      setOpenMenuId(openMenuId === user.id ? null : user.id)
+                    }
+                  >
+                    ...
+                  </button>
+                  {openMenuId === user.id && (
+                    <div className="user-table-action-menu">
+                      <button
+                        onClick={() =>
+                          navigate(
+                            `/users/edit/${user.id.replace(/^auth0\|/, "")}`
+                          )
+                        }
+                      >
+                        <span className="edit-icon">
+                          <svg
+                            width="16"
+                            height="16"
+                            viewBox="0 0 20 20"
+                            fill="none"
+                          >
+                            <path
+                              d="M4 13.5V16h2.5l7.06-7.06-2.5-2.5L4 13.5z"
+                              stroke="#2d60ff"
+                              strokeWidth="1.5"
+                            />
+                            <path
+                              d="M13.06 6.44l1.5-1.5a1 1 0 0 1 1.41 0l.59.59a1 1 0 0 1 0 1.41l-1.5 1.5-2.5-2.5z"
+                              stroke="#2d60ff"
+                              strokeWidth="1.5"
+                            />
+                          </svg>
+                        </span>
+                        Edit
+                      </button>
+                      <button onClick={() => handleDeleteClick(user)}>
+                        <span className="delete-icon">
+                          <svg
+                            width="16"
+                            height="16"
+                            viewBox="0 0 20 20"
+                            fill="none"
+                          >
+                            <path
+                              d="M6 7v7a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2V7"
+                              stroke="#fe5c73"
+                              strokeWidth="1.5"
+                            />
+                            <path
+                              d="M9 10v4M11 10v4M4 7h12M8 7V5a2 2 0 0 1 2-2h0a2 2 0 0 1 2 2v2"
+                              stroke="#fe5c73"
+                              strokeWidth="1.5"
+                            />
+                          </svg>
+                        </span>
+                        Delete
+                      </button>
+                    </div>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {/* Pagination should be outside the card */}
       {totalPages > 1 && (
         <div className="pagination-container">
           <div className="pagination">
@@ -331,7 +366,67 @@ const UserTable: React.FC = () => {
           </div>
         </div>
       )}
-    </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && userToDelete && (
+        <div className="delete-modal-overlay">
+          <div className="delete-modal">
+            <div className="delete-modal-header">
+              <h3>Delete User</h3>
+            </div>
+            <div className="delete-modal-content">
+              <p>Are you sure you want to delete this user?</p>
+              <div className="delete-modal-user-details">
+                <p>
+                  <strong>Name:</strong> {userToDelete.name}
+                </p>
+                <p>
+                  <strong>Email:</strong> {userToDelete.email}
+                </p>
+              </div>
+              <p>This action cannot be undone.</p>
+
+              <div className="delete-modal-confirmation">
+                <label htmlFor="delete-confirmation">
+                  Type <strong>"{userToDelete.name}"</strong> to confirm
+                  deletion:
+                </label>
+                <input
+                  id="delete-confirmation"
+                  type="text"
+                  value={deleteConfirmation}
+                  onChange={(e) => setDeleteConfirmation(e.target.value)}
+                  placeholder={`Type "${userToDelete.name}" to confirm`}
+                  className="delete-modal-input"
+                />
+              </div>
+
+              {deleteError && (
+                <div className="delete-modal-error">{deleteError}</div>
+              )}
+            </div>
+            <div className="delete-modal-actions">
+              <button
+                className="delete-modal-cancel-btn"
+                onClick={handleCancelDelete}
+                disabled={deleteLoading}
+              >
+                Cancel
+              </button>
+              <button
+                className="delete-modal-confirm-btn"
+                onClick={handleConfirmDelete}
+                disabled={
+                  deleteLoading || deleteConfirmation !== userToDelete.name
+                }
+              >
+                {deleteLoading ? "Deleting..." : "Delete User"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 

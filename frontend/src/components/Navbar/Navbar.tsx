@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
 import "./Navbar.css";
 import { useSearchContext } from "../SearchBar/SearchContext";
+import settingsIcon from "../../assets/settings.png";
+import notificationBellIcon from "../../assets/notification-bell.png";
 
 const Navbar: React.FC = () => {
   const { isAuthenticated, loginWithRedirect, logout, user, isLoading } =
@@ -69,42 +71,22 @@ const Navbar: React.FC = () => {
 
         {/* Right side icons and profile */}
         <div className="navbar-right">
-          {/* Settings/Grid icon group positioned at x: 1175, y: 25, width: 50, height: 50 */}
+          {/* Settings icon group positioned at x: 1175, y: 25, width: 50, height: 50 */}
           <div className="navbar-icon">
-            {/* 3x3 Grid of dots icon positioned at x: 1187, y: 37, width: 25, height: 25 */}
-            <svg width="25" height="25" fill="none" viewBox="0 0 25 25">
-              <circle cx="12.5" cy="12.5" r="12.5" fill="#F5F7FA" />
-              {/* 3x3 grid of 9 dots */}
-              <circle cx="7.5" cy="7.5" r="1.5" fill="#718DC0" />
-              <circle cx="12.5" cy="7.5" r="1.5" fill="#718DC0" />
-              <circle cx="17.5" cy="7.5" r="1.5" fill="#718DC0" />
-              <circle cx="7.5" cy="12.5" r="1.5" fill="#718DC0" />
-              <circle cx="12.5" cy="12.5" r="1.5" fill="#718DC0" />
-              <circle cx="17.5" cy="12.5" r="1.5" fill="#718DC0" />
-              <circle cx="7.5" cy="17.5" r="1.5" fill="#718DC0" />
-              <circle cx="12.5" cy="17.5" r="1.5" fill="#718DC0" />
-              <circle cx="17.5" cy="17.5" r="1.5" fill="#718DC0" />
-            </svg>
+            <img
+              src={settingsIcon}
+              alt="Settings"
+              className="navbar-icon-img"
+            />
           </div>
 
           {/* Notification icon group positioned at x: 1255, y: 25, width: 50, height: 50 */}
           <div className="navbar-notification">
-            {/* Notification icon positioned at x: 1268, y: 37, width: 25, height: 25 */}
-            <svg width="25" height="25" fill="none" viewBox="0 0 25 25">
-              <circle cx="12.5" cy="12.5" r="12.5" fill="#F5F7FA" />
-              {/* Bell body */}
-              <path
-                d="M1.02539 3.125H20.8334V21.875H1.02539V3.125Z"
-                fill="#FE5C73"
-              />
-              {/* Bell handle */}
-              <path
-                d="M7.53574 20.3125H15.3482V25H7.53574V20.3125Z"
-                fill="#FE5C73"
-              />
-              {/* Notification dot */}
-              <circle cx="13.5254" cy="5.2083" r="5.2083" fill="#FE5C73" />
-            </svg>
+            <img
+              src={notificationBellIcon}
+              alt="Notifications"
+              className="navbar-icon-img"
+            />
           </div>
 
           {/* User Profile - Mask Group positioned at x: 1340, y: 20, width: 60, height: 60 */}

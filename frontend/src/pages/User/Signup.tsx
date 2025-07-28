@@ -37,64 +37,66 @@ const Signup: React.FC = () => {
 
   return (
     <div className="signup-container">
-      <div className="signup-content">
-        <div className="signup-header">
-          <h2 className="signup-title">Sign Up</h2>
-          <Button
-            variant="secondary"
-            size="small"
-            onClick={() => navigate("/")}
-            className="back-button"
-          >
-            Back to Users
-          </Button>
-        </div>
-        <form onSubmit={handleSubmit} className="signup-form">
-          <div className="form-group">
-            <label className="form-label">Name</label>
-            <input
-              type="text"
-              name="name"
-              value={form.name}
-              onChange={handleChange}
-              required
-              className="form-input"
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Email</label>
-            <input
-              type="email"
-              name="email"
-              value={form.email}
-              onChange={handleChange}
-              required
-              className="form-input"
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Password</label>
-            <input
-              type="password"
-              name="password"
-              value={form.password}
-              onChange={handleChange}
-              required
-              className="form-input"
-            />
-          </div>
-          <button type="submit" disabled={loading} className="submit-button">
-            {loading && <span className="loading-spinner"></span>}
-            {loading ? "Signing up..." : "Sign Up"}
-          </button>
-          {error && <div className="message error">{error}</div>}
-          {success && (
-            <div className="message success">
-              User created successfully! Redirecting to user list...
+      <div className="signup-tab">Create User</div>
+      <form onSubmit={handleSubmit} className="signup-form">
+        <div className="signup-form-content">
+          <div className="signup-column">
+            <div className="signup-field">
+              <label className="signup-label">Name</label>
+              <input
+                type="text"
+                name="name"
+                value={form.name}
+                onChange={handleChange}
+                required
+                className="signup-input"
+                placeholder="Enter name"
+              />
             </div>
-          )}
-        </form>
-      </div>
+            <div className="signup-field">
+              <label className="signup-label">Email</label>
+              <input
+                type="email"
+                name="email"
+                value={form.email}
+                onChange={handleChange}
+                required
+                className="signup-input"
+                placeholder="Enter email"
+              />
+            </div>
+          </div>
+          <div className="signup-column">
+            <div className="signup-field">
+              <label className="signup-label">Password</label>
+              <input
+                type="password"
+                name="password"
+                value={form.password}
+                onChange={handleChange}
+                required
+                className="signup-input"
+                placeholder="Enter password"
+              />
+            </div>
+          </div>
+        </div>
+        {error && <div className="signup-error">{error}</div>}
+        {success && (
+          <div className="signup-success">
+            User created successfully! Redirecting to user list...
+          </div>
+        )}
+        <div className="signup-button-container">
+          <button
+            type="submit"
+            disabled={loading}
+            className="signup-submit-btn"
+          >
+            {loading ? "Submitting..." : "Submit"}
+          </button>
+        </div>
+      </form>
     </div>
   );
 };
