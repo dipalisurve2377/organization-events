@@ -47,3 +47,9 @@ export const updateOrganization = async (
   );
   return response.data;
 };
+
+// Delete organization
+export const deleteOrganization = async (id: string): Promise<any> => {
+  const response = await axios.delete(`${API_BASE_URL}/organizations/${id}`);
+  return response;
+};

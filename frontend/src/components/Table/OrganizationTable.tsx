@@ -1,9 +1,10 @@
 import React, { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
 import "./UserTable.css";
-import { getOrganizations } from "../../api/organization";
+import { getOrganizations, deleteOrganization } from "../../api/organization";
 import Button from "../Button/Button";
 import { useSearchContext } from "../SearchBar/SearchContext";
 
@@ -37,6 +38,7 @@ const statusClassMap: Record<string, string> = {
 };
 
 const OrganizationTable: React.FC = () => {
+  const queryClient = useQueryClient();
   const {
     data: organizations = [],
     isLoading,
@@ -56,6 +58,14 @@ const OrganizationTable: React.FC = () => {
   const [itemsPerPage] = useState(5);
   const navigate = useNavigate();
   const { searchTerm } = useSearchContext();
+
+  // Delete confirmation modal state
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [organizationToDelete, setOrganizationToDelete] =
+    useState<Organization | null>(null);
+  const [deleteConfirmation, setDeleteConfirmation] = useState("");
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   // Filter organizations based on search term
   const filteredOrganizations = organizations.filter((org) => {
@@ -131,6 +141,132 @@ const OrganizationTable: React.FC = () => {
     if (currentPage < totalPages) {
       setCurrentPage(currentPage + 1);
     }
+  };
+
+  // Handle delete button click
+  const handleDeleteClick = (organization: Organization) => {
+    setOrganizationToDelete(organization);
+    setShowDeleteModal(true);
+    setDeleteConfirmation("");
+    setDeleteError(null);
+    setOpenMenuId(null); // Close the action menu
+  };
+
+  // Handle actual delete
+  const handleConfirmDelete = async () => {
+    if (!organizationToDelete) return;
+
+    if (deleteConfirmation !== organizationToDelete.name) {
+      setDeleteError(
+        "Name does not match. Please type the exact name to confirm deletion."
+      );
+      return;
+    }
+
+    setDeleteLoading(true);
+    setDeleteError(null);
+
+    try {
+      // Start the delete workflow
+      await deleteOrganization(organizationToDelete.id);
+
+      // Poll for deletion status
+      let attempts = 0;
+      const maxAttempts = 30; // 30 seconds
+      const pollInterval = 1000; // 1 second
+
+      const pollForDeletion = async () => {
+        try {
+          const updatedOrganizations = await refetch();
+          const organization = updatedOrganizations.data?.find(
+            (org) => org.id === organizationToDelete.id
+          );
+
+          // If organization is not found, it's been deleted
+          if (!organization) {
+            return true;
+          }
+
+          // If status is failed, throw error
+          if (organization.status === "failed") {
+            throw new Error("Delete operation failed");
+          }
+
+          // If status is deleting, continue polling
+          if (organization.status === "deleting") {
+            return false;
+          }
+
+          // If status is deleted, we're done
+          if (organization.status === "deleted") {
+            return true;
+          }
+
+          return false;
+        } catch (error) {
+          console.error("Error polling for deletion status:", error);
+          return false;
+        }
+      };
+
+      // Poll until deletion is complete or max attempts reached
+      while (attempts < maxAttempts) {
+        const isComplete = await pollForDeletion();
+        if (isComplete) {
+          break;
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, pollInterval));
+        attempts++;
+      }
+
+      if (attempts >= maxAttempts) {
+        throw new Error(
+          "Delete operation timed out. Please refresh the page to see the current status."
+        );
+      }
+
+      // Invalidate the cache and refetch fresh data
+      queryClient.invalidateQueries({ queryKey: ["organizations"] });
+      await refetch();
+
+      // Close modal and reset state
+      setShowDeleteModal(false);
+      setOrganizationToDelete(null);
+      setDeleteConfirmation("");
+
+      // Show success toast
+      toast.success("Organization deleted successfully!", {
+        position: "top-right",
+        autoClose: 3000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+      });
+    } catch (err: any) {
+      const errorMessage =
+        err.message || "Failed to delete organization. Please try again.";
+      setDeleteError(errorMessage);
+      toast.error(errorMessage, {
+        position: "top-right",
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+      });
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
+  // Handle cancel delete
+  const handleCancelDelete = () => {
+    setShowDeleteModal(false);
+    setOrganizationToDelete(null);
+    setDeleteConfirmation("");
+    setDeleteError(null);
   };
 
   if (isLoading) return <div className="user-table-loading">Loading...</div>;
@@ -215,12 +351,7 @@ const OrganizationTable: React.FC = () => {
                         </span>
                         Edit
                       </button>
-                      <button
-                        onClick={() => {
-                          // TODO: Implement delete functionality
-                          console.log("Delete organization:", org.id);
-                        }}
-                      >
+                      <button onClick={() => handleDeleteClick(org)}>
                         <span className="delete-icon">
                           <svg
                             width="16"
@@ -315,6 +446,77 @@ const OrganizationTable: React.FC = () => {
                 />
               </svg>
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && organizationToDelete && (
+        <div className="delete-modal-overlay">
+          <div className="delete-modal">
+            <div className="delete-modal-header">
+              <h3>Delete Organization</h3>
+            </div>
+            <div className="delete-modal-content">
+              <p>Are you sure you want to delete this organization?</p>
+              <div className="delete-modal-user-details">
+                <p>
+                  <strong>Name:</strong> {organizationToDelete.name}
+                </p>
+                <p>
+                  <strong>Identifier:</strong> {organizationToDelete.identifier}
+                </p>
+              </div>
+              <p>This action cannot be undone.</p>
+
+              <div className="delete-modal-confirmation">
+                <label htmlFor="delete-confirmation">
+                  Type <strong>"{organizationToDelete.name}"</strong> to confirm
+                  deletion:
+                </label>
+                <input
+                  id="delete-confirmation"
+                  type="text"
+                  value={deleteConfirmation}
+                  onChange={(e) => setDeleteConfirmation(e.target.value)}
+                  placeholder={`Type "${organizationToDelete.name}" to confirm`}
+                  className="delete-modal-input"
+                />
+              </div>
+
+              {deleteError && (
+                <div className="delete-modal-error">{deleteError}</div>
+              )}
+            </div>
+            <div className="delete-modal-actions">
+              <button
+                className="delete-modal-cancel-btn"
+                onClick={handleCancelDelete}
+                disabled={deleteLoading}
+              >
+                Cancel
+              </button>
+              <button
+                className="delete-modal-confirm-btn"
+                onClick={handleConfirmDelete}
+                disabled={
+                  deleteLoading ||
+                  deleteConfirmation !== organizationToDelete.name
+                }
+              >
+                {deleteLoading ? (
+                  <>
+                    <span
+                      className="loading-spinner"
+                      style={{ marginRight: 8 }}
+                    ></span>
+                    Deleting Organization...
+                  </>
+                ) : (
+                  "Delete Organization"
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}
