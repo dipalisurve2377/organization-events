@@ -6,6 +6,7 @@ import { toast } from "react-toastify";
 import "./UserTable.css";
 import { getOrganizations, deleteOrganization } from "../../api/organization";
 import Button from "../Button/Button";
+import DeleteModal from "../Modal/DeleteModal";
 import { useSearchContext } from "../SearchBar/SearchContext";
 
 interface Organization {
@@ -63,9 +64,6 @@ const OrganizationTable: React.FC = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [organizationToDelete, setOrganizationToDelete] =
     useState<Organization | null>(null);
-  const [deleteConfirmation, setDeleteConfirmation] = useState("");
-  const [deleteLoading, setDeleteLoading] = useState(false);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   // Filter organizations based on search term
   const filteredOrganizations = organizations.filter((org) => {
@@ -147,61 +145,47 @@ const OrganizationTable: React.FC = () => {
   const handleDeleteClick = (organization: Organization) => {
     setOrganizationToDelete(organization);
     setShowDeleteModal(true);
-    setDeleteConfirmation("");
-    setDeleteError(null);
-    setOpenMenuId(null); // Close the action menu
   };
 
   // Handle actual delete
   const handleConfirmDelete = async () => {
     if (!organizationToDelete) return;
 
-    if (deleteConfirmation !== organizationToDelete.name) {
-      setDeleteError(
-        "Name does not match. Please type the exact name to confirm deletion."
-      );
-      return;
-    }
-
-    setDeleteLoading(true);
-    setDeleteError(null);
-
     try {
       // Start the delete workflow
       await deleteOrganization(organizationToDelete.id);
 
-      // Poll for deletion status
+      // Poll for status updates until the organization is deleted or status changes
       let attempts = 0;
-      const maxAttempts = 30; // 30 seconds
+      const maxAttempts = 30; // 30 seconds max
       const pollInterval = 1000; // 1 second
 
       const pollForDeletion = async () => {
         try {
-          const updatedOrganizations = await refetch();
-          const organization = updatedOrganizations.data?.find(
-            (org) => org.id === organizationToDelete.id
+          // Refetch organizations to get updated status
+          await refetch();
+
+          // Check if organization still exists and get their current status
+          const updatedOrganizations = await fetchOrganizations();
+          const updatedOrganization = updatedOrganizations.find(
+            (o) => o.id === organizationToDelete.id
           );
 
-          // If organization is not found, it's been deleted
-          if (!organization) {
+          if (!updatedOrganization) {
+            // Organization has been completely deleted
             return true;
           }
 
-          // If status is failed, throw error
-          if (organization.status === "failed") {
-            throw new Error("Delete operation failed");
-          }
-
-          // If status is deleting, continue polling
-          if (organization.status === "deleting") {
-            return false;
-          }
-
-          // If status is deleted, we're done
-          if (organization.status === "deleted") {
+          if (updatedOrganization.status === "deleted") {
+            // Organization has been marked as deleted
             return true;
           }
 
+          if (updatedOrganization.status === "failed") {
+            throw new Error("Organization deletion failed");
+          }
+
+          // Still processing, continue polling
           return false;
         } catch (error) {
           console.error("Error polling for deletion status:", error);
@@ -233,7 +217,6 @@ const OrganizationTable: React.FC = () => {
       // Close modal and reset state
       setShowDeleteModal(false);
       setOrganizationToDelete(null);
-      setDeleteConfirmation("");
 
       // Show success toast
       toast.success("Organization deleted successfully!", {
@@ -247,7 +230,6 @@ const OrganizationTable: React.FC = () => {
     } catch (err: any) {
       const errorMessage =
         err.message || "Failed to delete organization. Please try again.";
-      setDeleteError(errorMessage);
       toast.error(errorMessage, {
         position: "top-right",
         autoClose: 5000,
@@ -256,8 +238,7 @@ const OrganizationTable: React.FC = () => {
         pauseOnHover: true,
         draggable: true,
       });
-    } finally {
-      setDeleteLoading(false);
+      throw err; // Re-throw to be handled by the modal
     }
   };
 
@@ -265,8 +246,6 @@ const OrganizationTable: React.FC = () => {
   const handleCancelDelete = () => {
     setShowDeleteModal(false);
     setOrganizationToDelete(null);
-    setDeleteConfirmation("");
-    setDeleteError(null);
   };
 
   if (isLoading) return <div className="user-table-loading">Loading...</div>;
@@ -450,76 +429,24 @@ const OrganizationTable: React.FC = () => {
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
-      {showDeleteModal && organizationToDelete && (
-        <div className="delete-modal-overlay">
-          <div className="delete-modal">
-            <div className="delete-modal-header">
-              <h3>Delete Organization</h3>
-            </div>
-            <div className="delete-modal-content">
-              <p>Are you sure you want to delete this organization?</p>
-              <div className="delete-modal-user-details">
-                <p>
-                  <strong>Name:</strong> {organizationToDelete.name}
-                </p>
-                <p>
-                  <strong>Identifier:</strong> {organizationToDelete.identifier}
-                </p>
-              </div>
-              <p>This action cannot be undone.</p>
-
-              <div className="delete-modal-confirmation">
-                <label htmlFor="delete-confirmation">
-                  Type <strong>"{organizationToDelete.name}"</strong> to confirm
-                  deletion:
-                </label>
-                <input
-                  id="delete-confirmation"
-                  type="text"
-                  value={deleteConfirmation}
-                  onChange={(e) => setDeleteConfirmation(e.target.value)}
-                  placeholder={`Type "${organizationToDelete.name}" to confirm`}
-                  className="delete-modal-input"
-                />
-              </div>
-
-              {deleteError && (
-                <div className="delete-modal-error">{deleteError}</div>
-              )}
-            </div>
-            <div className="delete-modal-actions">
-              <button
-                className="delete-modal-cancel-btn"
-                onClick={handleCancelDelete}
-                disabled={deleteLoading}
-              >
-                Cancel
-              </button>
-              <button
-                className="delete-modal-confirm-btn"
-                onClick={handleConfirmDelete}
-                disabled={
-                  deleteLoading ||
-                  deleteConfirmation !== organizationToDelete.name
-                }
-              >
-                {deleteLoading ? (
-                  <>
-                    <span
-                      className="loading-spinner"
-                      style={{ marginRight: 8 }}
-                    ></span>
-                    Deleting Organization...
-                  </>
-                ) : (
-                  "Delete Organization"
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Reusable Delete Modal */}
+      <DeleteModal
+        isOpen={showDeleteModal}
+        onClose={handleCancelDelete}
+        onConfirm={handleConfirmDelete}
+        title="Delete Organization"
+        itemName={organizationToDelete?.name || ""}
+        itemDetails={[
+          { label: "Name", value: organizationToDelete?.name || "" },
+          {
+            label: "Identifier",
+            value: organizationToDelete?.identifier || "",
+          },
+        ]}
+        confirmText="Delete Organization"
+        cancelText="Cancel"
+        loadingText="Deleting Organization..."
+      />
     </>
   );
 };

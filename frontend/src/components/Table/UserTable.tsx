@@ -6,6 +6,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import "./UserTable.css";
 import { deleteUser } from "../../api/user";
+import DeleteModal from "../Modal/DeleteModal";
 
 import { useSearchContext } from "../SearchBar/SearchContext";
 
@@ -50,7 +51,6 @@ const UserTable: React.FC = () => {
     data: users = [],
     isLoading,
     isError,
-    refetch,
   } = useQuery<User[]>({
     queryKey: ["users"],
     queryFn: fetchUsers,
@@ -64,9 +64,6 @@ const UserTable: React.FC = () => {
   // Delete confirmation modal state
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
-  const [deleteConfirmation, setDeleteConfirmation] = useState("");
-  const [deleteLoading, setDeleteLoading] = useState(false);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   // Filter users based on search term
   const filteredUsers = users.filter((user) => {
@@ -139,96 +136,18 @@ const UserTable: React.FC = () => {
     }
   };
 
-  // Handle delete button click
   const handleDeleteClick = (user: User) => {
     setUserToDelete(user);
     setShowDeleteModal(true);
-    setDeleteConfirmation("");
-    setDeleteError(null);
-    setOpenMenuId(null); // Close the action menu
+    setOpenMenuId(null);
   };
 
-  // Handle actual delete
   const handleConfirmDelete = async () => {
     if (!userToDelete) return;
 
-    if (deleteConfirmation !== userToDelete.name) {
-      setDeleteError(
-        "Name does not match. Please type the exact name to confirm deletion."
-      );
-      return;
-    }
-
-    setDeleteLoading(true);
-    setDeleteError(null);
-
     try {
-      // Start the delete workflow
-      await deleteUser(userToDelete.id);
-
-      // Poll for status updates until the user is deleted or status changes
-      let attempts = 0;
-      const maxAttempts = 30; // 30 seconds max
-      const pollInterval = 1000; // 1 second
-
-      const pollForDeletion = async () => {
-        try {
-          // Refetch users to get updated status
-          await refetch();
-
-          // Check if user still exists and get their current status
-          const updatedUsers = await fetchUsers();
-          const updatedUser = updatedUsers.find(
-            (u) => u.id === userToDelete.id
-          );
-
-          if (!updatedUser) {
-            // User has been completely deleted
-            return true;
-          }
-
-          if (updatedUser.status === "deleted") {
-            // User has been marked as deleted
-            return true;
-          }
-
-          if (updatedUser.status === "failed") {
-            throw new Error("User deletion failed");
-          }
-
-          // Still processing, continue polling
-          return false;
-        } catch (error) {
-          console.error("Error polling for deletion status:", error);
-          return false;
-        }
-      };
-
-      // Poll until deletion is complete or max attempts reached
-      while (attempts < maxAttempts) {
-        const isComplete = await pollForDeletion();
-        if (isComplete) {
-          break;
-        }
-
-        await new Promise((resolve) => setTimeout(resolve, pollInterval));
-        attempts++;
-      }
-
-      if (attempts >= maxAttempts) {
-        throw new Error(
-          "Delete operation timed out. Please refresh the page to see the current status."
-        );
-      }
-
-      // Invalidate the cache and refetch fresh data
-      queryClient.invalidateQueries({ queryKey: ["users"] });
-      await refetch();
-
-      // Close modal and reset state
-      setShowDeleteModal(false);
-      setUserToDelete(null);
-      setDeleteConfirmation("");
+      // Call the delete API
+      await deleteUser(userToDelete.id.replace(/^auth0\|/, ""));
 
       // Show success toast
       toast.success("User deleted successfully!", {
@@ -239,10 +158,50 @@ const UserTable: React.FC = () => {
         pauseOnHover: true,
         draggable: true,
       });
-    } catch (err: any) {
+
+      // Poll for deletion status
+      const pollForDeletion = async () => {
+        let attempts = 0;
+        const maxAttempts = 30; // 30 seconds
+        const pollInterval = 1000; // 1 second
+
+        const checkStatus = async () => {
+          try {
+            const response = await axios.get(
+              `http://localhost:7001/api/users/${userToDelete.id.replace(
+                /^auth0\|/,
+                ""
+              )}`
+            );
+            const userStatus = (response.data as any).status;
+
+            if (userStatus === "deleted" || userStatus === "failed") {
+              // Stop polling and refresh the list
+              await queryClient.invalidateQueries({ queryKey: ["users"] });
+              return;
+            }
+          } catch (error) {
+            // User might be deleted, refresh the list
+            await queryClient.invalidateQueries({ queryKey: ["users"] });
+            return;
+          }
+
+          attempts++;
+          if (attempts < maxAttempts) {
+            setTimeout(checkStatus, pollInterval);
+          } else {
+            // Timeout, refresh anyway
+            await queryClient.invalidateQueries({ queryKey: ["users"] });
+          }
+        };
+
+        setTimeout(checkStatus, pollInterval);
+      };
+
+      pollForDeletion();
+    } catch (error: any) {
       const errorMessage =
-        err.message || "Failed to delete user. Please try again.";
-      setDeleteError(errorMessage);
+        error.response?.data?.message || "Failed to delete user";
       toast.error(errorMessage, {
         position: "top-right",
         autoClose: 5000,
@@ -251,17 +210,13 @@ const UserTable: React.FC = () => {
         pauseOnHover: true,
         draggable: true,
       });
-    } finally {
-      setDeleteLoading(false);
+      throw error; // Re-throw to be handled by the modal
     }
   };
 
-  // Handle cancel delete
   const handleCancelDelete = () => {
     setShowDeleteModal(false);
     setUserToDelete(null);
-    setDeleteConfirmation("");
-    setDeleteError(null);
   };
 
   if (isLoading) return <div className="user-table-loading">Loading...</div>;
@@ -441,75 +396,21 @@ const UserTable: React.FC = () => {
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
-      {showDeleteModal && userToDelete && (
-        <div className="delete-modal-overlay">
-          <div className="delete-modal">
-            <div className="delete-modal-header">
-              <h3>Delete User</h3>
-            </div>
-            <div className="delete-modal-content">
-              <p>Are you sure you want to delete this user?</p>
-              <div className="delete-modal-user-details">
-                <p>
-                  <strong>Name:</strong> {userToDelete.name}
-                </p>
-                <p>
-                  <strong>Email:</strong> {userToDelete.email}
-                </p>
-              </div>
-              <p>This action cannot be undone.</p>
-
-              <div className="delete-modal-confirmation">
-                <label htmlFor="delete-confirmation">
-                  Type <strong>"{userToDelete.name}"</strong> to confirm
-                  deletion:
-                </label>
-                <input
-                  id="delete-confirmation"
-                  type="text"
-                  value={deleteConfirmation}
-                  onChange={(e) => setDeleteConfirmation(e.target.value)}
-                  placeholder={`Type "${userToDelete.name}" to confirm`}
-                  className="delete-modal-input"
-                />
-              </div>
-
-              {deleteError && (
-                <div className="delete-modal-error">{deleteError}</div>
-              )}
-            </div>
-            <div className="delete-modal-actions">
-              <button
-                className="delete-modal-cancel-btn"
-                onClick={handleCancelDelete}
-                disabled={deleteLoading}
-              >
-                Cancel
-              </button>
-              <button
-                className="delete-modal-confirm-btn"
-                onClick={handleConfirmDelete}
-                disabled={
-                  deleteLoading || deleteConfirmation !== userToDelete.name
-                }
-              >
-                {deleteLoading ? (
-                  <>
-                    <span
-                      className="loading-spinner"
-                      style={{ marginRight: 8 }}
-                    ></span>
-                    Deleting User...
-                  </>
-                ) : (
-                  "Delete User"
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Reusable Delete Modal */}
+      <DeleteModal
+        isOpen={showDeleteModal}
+        onClose={handleCancelDelete}
+        onConfirm={handleConfirmDelete}
+        title="Delete User"
+        itemName={userToDelete?.name || ""}
+        itemDetails={[
+          { label: "Name", value: userToDelete?.name || "" },
+          { label: "Email", value: userToDelete?.email || "" },
+        ]}
+        confirmText="Delete User"
+        cancelText="Cancel"
+        loadingText="Deleting User..."
+      />
     </>
   );
 };

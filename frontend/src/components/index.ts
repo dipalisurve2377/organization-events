@@ -5,6 +5,7 @@ export { default as Button } from "./Button/Button";
 export { default as Form } from "./Form/Form";
 export { default as FormColumn } from "./Form/FormColumn";
 export { default as Input } from "./Input/Input";
+export { default as DeleteModal } from "./Modal/DeleteModal";
 
 // Sidebar Component
 export { default as Sidebar } from "./Sidebar/Sidebar";
