@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { createOrganization } from "../../api/organization";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
-import "../User/CreateUser.css";
+import { Form, FormColumn, Input } from "../../components";
 
 const CreateOrganization: React.FC = () => {
   const [form, setForm] = useState({
@@ -58,69 +58,51 @@ const CreateOrganization: React.FC = () => {
   };
 
   return (
-    <div className="signup-container">
-      <div className="signup-tab">Create Organization</div>
-      <form onSubmit={handleSubmit} className="signup-form">
-        <div className="signup-form-content">
-          <div className="signup-column">
-            <div className="signup-field">
-              <label className="signup-label">Organization Name</label>
-              <input
-                type="text"
-                name="name"
-                value={form.name}
-                onChange={handleChange}
-                required
-                className="signup-input"
-                placeholder="Enter organization name"
-              />
-            </div>
-            <div className="signup-field">
-              <label className="signup-label">Identifier</label>
-              <input
-                type="text"
-                name="identifier"
-                value={form.identifier}
-                onChange={handleChange}
-                required
-                className="signup-input"
-                placeholder="Enter organization identifier"
-              />
-            </div>
-          </div>
-          <div className="signup-column">
-            <div className="signup-field">
-              <label className="signup-label">Created By Email</label>
-              <input
-                type="email"
-                name="createdByEmail"
-                value={form.createdByEmail}
-                onChange={handleChange}
-                required
-                className="signup-input"
-                placeholder="Enter creator email"
-              />
-            </div>
-          </div>
-        </div>
-        {error && <div className="signup-error">{error}</div>}
-        {success && (
-          <div className="signup-success">
-            Organization created successfully! Redirecting to organization
-            list...
-          </div>
-        )}
-        <div className="signup-button-container">
-          <button
-            type="submit"
-            disabled={loading}
-            className="signup-submit-btn"
-          >
-            {loading ? "Submitting..." : "Submit"}
-          </button>
-        </div>
-      </form>
-    </div>
+    <Form
+      onSubmit={handleSubmit}
+      title="Create Organization"
+      loading={loading}
+      error={error}
+      success={
+        success
+          ? "Organization created successfully! Redirecting to organization list..."
+          : null
+      }
+      submitButtonText="Submit"
+      submitButtonDisabled={loading}
+    >
+      <FormColumn>
+        <Input
+          type="text"
+          name="name"
+          value={form.name}
+          onChange={handleChange}
+          label="Organization Name"
+          placeholder="Enter organization name"
+          required
+        />
+        <Input
+          type="text"
+          name="identifier"
+          value={form.identifier}
+          onChange={handleChange}
+          label="Identifier"
+          placeholder="Enter organization identifier"
+          required
+        />
+      </FormColumn>
+      <FormColumn>
+        <Input
+          type="email"
+          name="createdByEmail"
+          value={form.createdByEmail}
+          onChange={handleChange}
+          label="Created By Email"
+          placeholder="Enter creator email"
+          required
+        />
+      </FormColumn>
+    </Form>
   );
 };
 

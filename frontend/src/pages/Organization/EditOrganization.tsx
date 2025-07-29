@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { getOrganization, updateOrganization } from "../../api/organization";
 import { toast } from "react-toastify";
-import "../User/EditUser.css";
+import { Form, FormColumn, Input } from "../../components";
 
 const EditOrganization: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -80,53 +80,46 @@ const EditOrganization: React.FC = () => {
     }
   };
 
-  if (fetching) return <div className="edit-user-loading">Loading...</div>;
+  if (fetching)
+    return (
+      <div style={{ textAlign: "center", padding: "40px", color: "#718dc0" }}>
+        Loading...
+      </div>
+    );
 
   return (
-    <div className="edit-user-container">
-      <div className="edit-user-tab">Edit Organization</div>
-      <form className="edit-user-form" onSubmit={handleSubmit}>
-        <div className="edit-user-form-content">
-          <div className="edit-user-column">
-            <div className="edit-user-field">
-              <label className="edit-user-label">Organization Name</label>
-              <input
-                className="edit-user-input"
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Enter organization name"
-                required
-              />
-            </div>
-          </div>
-          <div className="edit-user-column">
-            <div className="edit-user-field">
-              <label className="edit-user-label">Identifier</label>
-              <input
-                className="edit-user-input"
-                type="text"
-                value={identifier}
-                onChange={(e) => setIdentifier(e.target.value)}
-                placeholder="Enter organization identifier"
-                required
-              />
-            </div>
-          </div>
-        </div>
-        {error && <div className="edit-user-error">{error}</div>}
-        {success && <div className="edit-user-success">{success}</div>}
-        <div className="edit-user-button-container">
-          <button
-            className="edit-user-save-btn"
-            type="submit"
-            disabled={loading || !!success}
-          >
-            {loading ? "Saving..." : redirecting ? "Redirecting..." : "Save"}
-          </button>
-        </div>
-      </form>
-    </div>
+    <Form
+      onSubmit={handleSubmit}
+      title="Edit Organization"
+      loading={loading}
+      error={error}
+      success={success}
+      submitButtonText={redirecting ? "Redirecting..." : "Save"}
+      submitButtonDisabled={loading || !!success}
+    >
+      <FormColumn>
+        <Input
+          type="text"
+          name="name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          label="Organization Name"
+          placeholder="Enter organization name"
+          required
+        />
+      </FormColumn>
+      <FormColumn>
+        <Input
+          type="text"
+          name="identifier"
+          value={identifier}
+          onChange={(e) => setIdentifier(e.target.value)}
+          label="Identifier"
+          placeholder="Enter organization identifier"
+          required
+        />
+      </FormColumn>
+    </Form>
   );
 };
 

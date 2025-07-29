@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { getUser, updateUser } from "../../api/user";
 import { toast } from "react-toastify";
-import "./EditUser.css";
+import { Form, FormColumn, Input } from "../../components";
 
 const EditUser: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -78,43 +78,38 @@ const EditUser: React.FC = () => {
     }
   };
 
-  if (fetching) return <div className="edit-user-loading">Loading...</div>;
+  if (fetching)
+    return (
+      <div style={{ textAlign: "center", padding: "40px", color: "#718dc0" }}>
+        Loading...
+      </div>
+    );
 
   return (
-    <div className="edit-user-container">
-      <div className="edit-user-tab">Edit Profile</div>
-      <form className="edit-user-form" onSubmit={handleSubmit}>
-        <div className="edit-user-form-content">
-          <div className="edit-user-column">
-            <div className="edit-user-field">
-              <label className="edit-user-label">Your Name</label>
-              <input
-                className="edit-user-input"
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Enter name"
-                required
-              />
-            </div>
-          </div>
-          <div className="edit-user-column">
-            {/* Empty column for balance - can be used for additional fields later */}
-          </div>
-        </div>
-        {error && <div className="edit-user-error">{error}</div>}
-        {success && <div className="edit-user-success">{success}</div>}
-        <div className="edit-user-button-container">
-          <button
-            className="edit-user-save-btn"
-            type="submit"
-            disabled={loading || !!success}
-          >
-            {loading ? "Saving..." : redirecting ? "Redirecting..." : "Save"}
-          </button>
-        </div>
-      </form>
-    </div>
+    <Form
+      onSubmit={handleSubmit}
+      title="Edit Profile"
+      loading={loading}
+      error={error}
+      success={success}
+      submitButtonText={redirecting ? "Redirecting..." : "Save"}
+      submitButtonDisabled={loading || !!success}
+    >
+      <FormColumn>
+        <Input
+          type="text"
+          name="name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          label="Your Name"
+          placeholder="Enter name"
+          required
+        />
+      </FormColumn>
+      <FormColumn>
+        <div></div>
+      </FormColumn>
+    </Form>
   );
 };
 
