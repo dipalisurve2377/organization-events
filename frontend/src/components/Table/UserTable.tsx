@@ -8,6 +8,7 @@ import "./UserTable.css";
 import { deleteUser } from "../../api/user";
 import DeleteModal from "../Modal/DeleteModal";
 import Pagination from "../Pagination/Pagination";
+import Loader from "../Loader/Loader";
 
 import { useSearchContext } from "../SearchBar/SearchContext";
 
@@ -172,7 +173,7 @@ const UserTable: React.FC = () => {
     setUserToDelete(null);
   };
 
-  if (isLoading) return <div className="user-table-loading">Loading...</div>;
+  if (isLoading) return <Loader />;
   if (isError)
     return <div className="user-table-error">Failed to fetch users</div>;
 

@@ -4,6 +4,7 @@ import "./Navbar.css";
 import { useSearchContext } from "../SearchBar/SearchContext";
 import settingsIcon from "../../assets/settings.png";
 import notificationBellIcon from "../../assets/notification-bell.png";
+// import Loader from "../Loader/Loader";
 
 const Navbar: React.FC = () => {
   const { isAuthenticated, loginWithRedirect, logout, user, isLoading } =
@@ -28,7 +29,11 @@ const Navbar: React.FC = () => {
     return (
       <header className="navbar">
         <div className="navbar-content">
-          <div className="navbar-title">Loading...</div>
+          <div
+            style={{ width: "100%", display: "flex", justifyContent: "center" }}
+          >
+            {/* <Loader /> */}
+          </div>
         </div>
       </header>
     );

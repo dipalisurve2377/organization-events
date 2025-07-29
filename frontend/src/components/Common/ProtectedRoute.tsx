@@ -1,6 +1,7 @@
 import React from "react";
 import { useAuth0 } from "@auth0/auth0-react";
 import Button from "../Button/Button";
+import Loader from "../Loader/Loader";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -24,9 +25,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
           flexDirection: "column",
         }}
       >
-        <div style={{ fontSize: "18px", color: "#666", marginBottom: "20px" }}>
-          Loading...
-        </div>
+        {/* <Loader /> */}
       </div>
     );
   }

@@ -9,6 +9,7 @@ import Button from "../Button/Button";
 import DeleteModal from "../Modal/DeleteModal";
 import Pagination from "../Pagination/Pagination";
 import { useSearchContext } from "../SearchBar/SearchContext";
+import Loader from "../Loader/Loader";
 
 interface Organization {
   id: string;
@@ -200,7 +201,7 @@ const OrganizationTable: React.FC = () => {
     setOrganizationToDelete(null);
   };
 
-  if (isLoading) return <div className="user-table-loading">Loading...</div>;
+  if (isLoading) return <Loader />;
   if (isError)
     return (
       <div className="user-table-error">
