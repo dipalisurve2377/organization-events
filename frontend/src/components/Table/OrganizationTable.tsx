@@ -7,6 +7,7 @@ import "./UserTable.css";
 import { getOrganizations, deleteOrganization } from "../../api/organization";
 import Button from "../Button/Button";
 import DeleteModal from "../Modal/DeleteModal";
+import Pagination from "../Pagination/Pagination";
 import { useSearchContext } from "../SearchBar/SearchContext";
 
 interface Organization {
@@ -89,56 +90,8 @@ const OrganizationTable: React.FC = () => {
     endIndex
   );
 
-  // Generate page numbers to display
-  const getPageNumbers = () => {
-    const pages = [];
-    const maxVisiblePages = 5;
-
-    if (totalPages <= maxVisiblePages) {
-      for (let i = 1; i <= totalPages; i++) {
-        pages.push(i);
-      }
-    } else {
-      if (currentPage <= 3) {
-        for (let i = 1; i <= 4; i++) {
-          pages.push(i);
-        }
-        pages.push("...");
-        pages.push(totalPages);
-      } else if (currentPage >= totalPages - 2) {
-        pages.push(1);
-        pages.push("...");
-        for (let i = totalPages - 3; i <= totalPages; i++) {
-          pages.push(i);
-        }
-      } else {
-        pages.push(1);
-        pages.push("...");
-        for (let i = currentPage - 1; i <= currentPage + 1; i++) {
-          pages.push(i);
-        }
-        pages.push("...");
-        pages.push(totalPages);
-      }
-    }
-
-    return pages;
-  };
-
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
-  };
-
-  const handlePrevious = () => {
-    if (currentPage > 1) {
-      setCurrentPage(currentPage - 1);
-    }
-  };
-
-  const handleNext = () => {
-    if (currentPage < totalPages) {
-      setCurrentPage(currentPage + 1);
-    }
   };
 
   // Handle delete button click
@@ -242,7 +195,6 @@ const OrganizationTable: React.FC = () => {
     }
   };
 
-  // Handle cancel delete
   const handleCancelDelete = () => {
     setShowDeleteModal(false);
     setOrganizationToDelete(null);
@@ -251,7 +203,9 @@ const OrganizationTable: React.FC = () => {
   if (isLoading) return <div className="user-table-loading">Loading...</div>;
   if (isError)
     return (
-      <div className="user-table-error">Failed to fetch organizations</div>
+      <div className="user-table-error">
+        Failed to fetch organizations: {error?.message}
+      </div>
     );
 
   return (
@@ -262,28 +216,34 @@ const OrganizationTable: React.FC = () => {
             <tr>
               <th>Id</th>
               <th>Name</th>
+              <th>Identifier</th>
+              <th>Created By Email</th>
               <th>Created at</th>
               <th>Status</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {currentOrganizations.map((org: Organization) => (
-              <tr key={org.id}>
-                <td>{org.id ? org.id.replace(/^auth0\|/, "") : "-"}</td>
-                <td>{org.name || "-"}</td>
-
+            {currentOrganizations.map((organization: Organization) => (
+              <tr key={organization.id}>
+                <td>{organization.id}</td>
+                <td>{organization.name}</td>
+                <td>{organization.identifier}</td>
+                <td>{organization.createdByEmail}</td>
                 <td>
-                  {org.createdAt && org.createdAt !== "-"
-                    ? format(new Date(org.createdAt), "dd MMM, hh.mm a")
+                  {organization.createdAt && organization.createdAt !== "-"
+                    ? format(
+                        new Date(organization.createdAt),
+                        "dd MMM, hh.mm a"
+                      )
                     : "-"}
                 </td>
                 <td
                   className={`user-status user-status-${
-                    statusClassMap[org.status?.toLowerCase() || ""]
+                    statusClassMap[organization.status?.toLowerCase() || ""]
                   }`}
                 >
-                  {org.status || "-"}
+                  {organization.status}
                 </td>
                 <td
                   className="user-table-action-cell"
@@ -292,21 +252,18 @@ const OrganizationTable: React.FC = () => {
                   <button
                     className="user-table-action"
                     onClick={() =>
-                      setOpenMenuId(openMenuId === org.id ? null : org.id)
+                      setOpenMenuId(
+                        openMenuId === organization.id ? null : organization.id
+                      )
                     }
                   >
                     ...
                   </button>
-                  {openMenuId === org.id && (
+                  {openMenuId === organization.id && (
                     <div className="user-table-action-menu">
                       <button
                         onClick={() =>
-                          navigate(
-                            `/organizations/edit/${org.id.replace(
-                              /^auth0\|/,
-                              ""
-                            )}`
-                          )
+                          navigate(`/organizations/edit/${organization.id}`)
                         }
                       >
                         <span className="edit-icon">
@@ -330,7 +287,7 @@ const OrganizationTable: React.FC = () => {
                         </span>
                         Edit
                       </button>
-                      <button onClick={() => handleDeleteClick(org)}>
+                      <button onClick={() => handleDeleteClick(organization)}>
                         <span className="delete-icon">
                           <svg
                             width="16"
@@ -360,74 +317,14 @@ const OrganizationTable: React.FC = () => {
           </tbody>
         </table>
       </div>
-      {/* Pagination should be outside the card */}
-      {totalPages > 1 && (
-        <div className="pagination-container">
-          <div className="pagination">
-            {/* Previous Button */}
-            <button
-              className={`pagination-button ${
-                currentPage === 1 ? "disabled" : ""
-              }`}
-              onClick={handlePrevious}
-              disabled={currentPage === 1}
-            >
-              <svg width="12" height="6" viewBox="0 0 12 6" fill="none">
-                <path
-                  d="M11 1L6 5L1 1"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  transform="rotate(90 6 3)"
-                />
-              </svg>
-              <span>Previous</span>
-            </button>
 
-            {/* Page Numbers */}
-            <div className="page-numbers">
-              {getPageNumbers().map((page, index) => (
-                <React.Fragment key={index}>
-                  {page === "..." ? (
-                    <span className="page-ellipsis">...</span>
-                  ) : (
-                    <button
-                      className={`page-number ${
-                        currentPage === page ? "active" : ""
-                      }`}
-                      onClick={() => handlePageChange(page as number)}
-                    >
-                      {page}
-                    </button>
-                  )}
-                </React.Fragment>
-              ))}
-            </div>
-
-            {/* Next Button */}
-            <button
-              className={`pagination-button ${
-                currentPage === totalPages ? "disabled" : ""
-              }`}
-              onClick={handleNext}
-              disabled={currentPage === totalPages}
-            >
-              <span>Next</span>
-              <svg width="12" height="6" viewBox="0 0 12 6" fill="none">
-                <path
-                  d="M1 1L6 5L11 1"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  transform="rotate(-90 6 3)"
-                />
-              </svg>
-            </button>
-          </div>
-        </div>
-      )}
+      {/* Reusable Pagination Component */}
+      <Pagination
+        currentPage={currentPage}
+        totalItems={filteredOrganizations.length}
+        itemsPerPage={itemsPerPage}
+        onPageChange={handlePageChange}
+      />
 
       {/* Reusable Delete Modal */}
       <DeleteModal
